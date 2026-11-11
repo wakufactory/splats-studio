@@ -1,0 +1,13 @@
+{
+  "name": "sdf-splat-studio",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "start:http": "node scripts/serve.mjs --http --port 8080",
+    "test": "node --test *.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
