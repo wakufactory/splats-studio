@@ -36,8 +36,11 @@
         </label>
         <button id="points" type="button" aria-pressed="false" disabled>点群表示</button>
         <button id="reset" type="button" disabled>視点リセット</button>
+        <button id="ar" type="button" disabled title="WebXR対応状況を確認中">AR</button>
+        <button id="vr" type="button" disabled title="WebXR対応状況を確認中">VR</button>
         <button id="open" class="primary" type="button" disabled>ファイルを開く</button>
-        <input id="file" type="file" accept=".ply,.splat,.ksplat,.spz,.sog,.zip,.rad" hidden>
+        <!-- Leave accept unset: Safari can disable files with unrecognized extensions. -->
+        <input id="file" type="file" hidden>
       </div>
     </header>
     <section id="empty">
@@ -47,6 +50,7 @@
     </section>
     <div id="stereo-guide" aria-hidden="true" hidden><span>●</span><span>●</span></div>
     <div id="drop-overlay" hidden>ドロップして開く</div>
+    <button id="exit-xr" type="button" hidden>XRを終了</button>
     <footer>
       <p id="status" role="status">ビューアーを起動中…</p>
       <p><span id="stereo-help" hidden></span>ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>

@@ -1,10 +1,25 @@
 import { encodePly, presets, STRIDE } from "./sdf.mjs";
+import { disposeSplatMesh } from "./splat-resources.mjs";
+import { RenderWatchdog } from "./render-watchdog.mjs";
 
 const byId = id => document.getElementById(id);
 const form = byId("generator"), viewport = byId("viewport"), preset = byId("preset");
 const source = byId("source"), generate = byId("generate"), cancel = byId("cancel");
 const download = byId("download"), pointsButton = byId("points"), reset = byId("reset");
 const status = byId("status"), countFormat = new Intl.NumberFormat("ja-JP");
+const downloadSog = byId("download-sog"), sogStatus = byId("sog-status");
+const downloadName = byId("download-name");
+
+function saveBytes(bytes, filename) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
 
 function showStatus(message, kind = "") {
   status.textContent = message;
@@ -41,7 +56,7 @@ byId("effect").addEventListener("change", () => {
   }
   updateEffectControls();
 });
-byId("effect-controls").addEventListener("input", updateEffectControls);
+form.addEventListener("input", updateEffectControls);
 updateEffectControls();
 
 function sampleInWorker(payload, signal) {
@@ -65,11 +80,12 @@ function sampleInWorker(payload, signal) {
 }
 
 async function start() {
-  const [THREE, { SparkRenderer, SplatMesh }, { OrbitControls }] = await Promise.all([
+  const [THREE, { SparkRenderer, SplatMesh, SplatAccumulator }, { OrbitControls }] = await Promise.all([
     import("three"), import("@sparkjsdev/spark"), import("three/addons/controls/OrbitControls.js"),
   ]);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  // Gaussian edges already fade smoothly; MSAA adds fill/blend cost for long fur.
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
   renderer.setClearColor(0x11151b);
   viewport.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
@@ -83,6 +99,75 @@ async function start() {
   let result, model, pointCloud, bounds, job;
   let showPoints = false;
   let outputName = "sdf-surface";
+  let sogWorker, sogReady = false, sogBusy = false, sogTimeout;
+  let sogFilename;
+  const renderWatchdog = new RenderWatchdog();
+  const renderNotice = byId("render-notice");
+  let previewActive = !window.frameElement?.parentElement.hidden;
+
+  function exportFilename(extension) {
+    const name = downloadName.value.trim().replace(/\.(ply|sog)$/i, "")
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/[. ]+$/g, "");
+    return `${name || outputName}.${extension}`;
+  }
+
+  function updateSogButton() {
+    downloadSog.disabled = !sogReady || !result || sogBusy || Boolean(job);
+  }
+
+  function disableSog(message) {
+    clearTimeout(sogTimeout);
+    sogWorker?.terminate();
+    sogWorker = undefined;
+    sogReady = sogBusy = false;
+    downloadSog.textContent = "SOG を保存";
+    sogStatus.textContent = message;
+    downloadSog.title = message;
+    generate.disabled = Boolean(job);
+    updateSogButton();
+  }
+
+  function prepareSog() {
+    if (typeof Worker === "undefined" || typeof WebAssembly === "undefined") {
+      disableSog("SOG 保存はこの環境では利用できません（Worker / WebAssembly が必要です）。");
+      return;
+    }
+    try {
+      sogWorker = new Worker(new URL("./sog-worker.mjs", import.meta.url), { type: "module" });
+      sogTimeout = setTimeout(() => disableSog("SOG 保存の準備がタイムアウトしました。再読み込みで再試行できます。"), 60_000);
+      sogWorker.onerror = event => {
+        event.preventDefault();
+        disableSog("SOG 保存を利用できません。ブラウザーの対応状況と CDN 接続を確認してください。");
+      };
+      sogWorker.onmessage = ({ data }) => {
+        clearTimeout(sogTimeout);
+        if (data.type === "unavailable") {
+          console.warn("SOG initialization failed:", data.message);
+          disableSog("SOG 保存を利用できません。ブラウザーの対応状況と CDN 接続を確認してください。");
+          return;
+        }
+        if (data.type === "ready") {
+          sogReady = true;
+          sogStatus.textContent = "SOG：ブラウザー内で圧縮保存（非可逆）";
+        } else {
+          sogBusy = false;
+          generate.disabled = Boolean(job);
+          downloadSog.textContent = "SOG を保存";
+          if (data.type === "result") {
+            saveBytes(data.bytes, sogFilename);
+            sogStatus.textContent = `SOG を保存しました（${(data.bytes.byteLength / 1024 / 1024).toFixed(2)} MB）。`;
+          } else {
+            console.warn("SOG export failed:", data.message);
+            disableSog("SOG 変換に失敗しました。再読み込みで再試行できます。PLY 保存は利用できます。");
+            return;
+          }
+        }
+        updateSogButton();
+      };
+    } catch {
+      disableSog("SOG 保存用 Worker を起動できませんでした。");
+    }
+  }
 
   function resize() {
     const { clientWidth: width, clientHeight: height } = viewport;
@@ -161,14 +246,11 @@ async function start() {
       await nextModel.initialized;
       if (nextModel.numSplats !== count) throw new Error("Spark に全スプラットを転送できませんでした。");
     } catch (error) {
-      nextModel.dispose();
+      disposeSplatMesh(nextModel, SplatAccumulator);
       throw error;
     }
     const first = !model;
-    if (model) {
-      model.removeFromParent();
-      model.dispose();
-    }
+    disposeSplatMesh(model, SplatAccumulator);
     disposePointCloud();
     model = nextModel;
     result = next;
@@ -178,19 +260,24 @@ async function start() {
     updateDisplayMode();
     if (first) frameModel();
     pointsButton.disabled = reset.disabled = download.disabled = false;
+    updateSogButton();
   }
 
   async function regenerate() {
-    if (job) return;
+    if (job || sogBusy) return;
     const options = Object.fromEntries(["resolution", "extent", "size", "thickness", "density", "hairLength", "hairWidth",
-      "disorder", "variation", "clump", "clumpSize", "seed"].map(
+      "disorder", "variation", "clump", "clumpSize", "seed",
+      "ambientIntensity", "mainIntensity", "mainAzimuth", "mainElevation", "fillIntensity"].map(
       id => [id, byId(id).valueAsNumber],
     ));
     options.color = byId("color").value;
+    options.secondaryColor = byId("secondaryColor").value;
+    options.secondaryRatio = byId("secondaryRatio").valueAsNumber / 100;
     options.effect = byId("effect").value;
     options.base = byId("base").checked;
     const name = preset.value ? `sdf-${preset.value}` : "sdf-surface";
     job = new AbortController();
+    updateSogButton();
     generate.disabled = true;
     cancel.hidden = false;
     showStatus("表面をサンプリング中…");
@@ -199,18 +286,24 @@ async function start() {
       cancel.hidden = true;
       showStatus("Spark プレビューを準備中…");
       await display(next);
+      renderWatchdog.reset();
+      renderNotice.hidden = true;
+      updateRenderLoop();
       outputName = name;
+      downloadName.placeholder = outputName;
       const stats = `${countFormat.format(next.count)} スプラット${options.effect === "none" ? "" : ` / ${countFormat.format(next.hairCount)} 本・房`} · 生成 ${Math.round(next.elapsed)} ms`;
       showStatus(next.clipped ? `${stats}。形状が境界に達しています。探索範囲を広げてください。` : stats,
         next.clipped ? "warning" : "");
     } catch (error) {
-      const previous = result ? " 前回の結果を表示しています。" : "";
+      const previous = result ? (renderWatchdog.stopped
+        ? " 前回の結果は保持しています。描画は停止中です。" : " 前回の結果を表示しています。") : "";
       if (error.name === "AbortError") showStatus(`生成を中止しました。${previous}`);
       else showStatus(`生成できませんでした：${error.message}。${previous}`, "error");
     } finally {
       job = undefined;
       generate.disabled = false;
       cancel.hidden = true;
+      updateSogButton();
     }
   }
 
@@ -219,26 +312,54 @@ async function start() {
   reset.addEventListener("click", frameModel);
   pointsButton.addEventListener("click", () => { showPoints = !showPoints; updateDisplayMode(); });
   download.addEventListener("click", () => {
-    const url = URL.createObjectURL(new Blob([encodePly(result)], { type: "application/octet-stream" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${outputName}.ply`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    saveBytes(encodePly(result), exportFilename("ply"));
+  });
+  downloadSog.addEventListener("click", () => {
+    if (downloadSog.disabled) return;
+    sogBusy = true;
+    sogFilename = exportFilename("sog");
+    generate.disabled = true;
+    downloadSog.textContent = "SOG 変換中…";
+    sogStatus.textContent = "ブラウザー内で SOG に圧縮中…";
+    updateSogButton();
+    sogTimeout = setTimeout(() => disableSog("SOG 変換がタイムアウトしました。再読み込みで再試行できます。"), 120_000);
+    try {
+      // Transfer a copy so preview and PLY export retain the original data.
+      const data = result.data.slice();
+      sogWorker.postMessage({ data, count: result.count }, [data.buffer]);
+    } catch (error) {
+      console.warn("SOG export failed:", error);
+      disableSog("SOG 変換を開始できませんでした。PLY 保存は利用できます。");
+    }
   });
   new ResizeObserver(resize).observe(viewport);
   resize();
   const render = () => {
+    const start = performance.now();
     controls.update();
     renderer.render(scene, camera);
+    if (job) {
+      // Generation and preview setup can block the main thread independently.
+      renderWatchdog.resetTiming();
+    } else if (renderWatchdog.sample(start, performance.now())) {
+      renderNotice.hidden = false;
+      updateRenderLoop();
+    }
   };
+  function updateRenderLoop() {
+    renderWatchdog.resetTiming();
+    renderer.setAnimationLoop(previewActive && !document.hidden && !renderWatchdog.stopped ? render : null);
+  }
+  document.addEventListener("visibilitychange", updateRenderLoop);
   window.addEventListener("message", event => {
     if (event.source !== parent || event.origin !== location.origin ||
         event.data?.type !== "splat-studio-visibility") return;
     resize();
-    renderer.setAnimationLoop(event.data.active ? render : null);
+    previewActive = Boolean(event.data.active);
+    updateRenderLoop();
   });
-  renderer.setAnimationLoop(window.frameElement?.parentElement.hidden ? null : render);
+  updateRenderLoop();
+  prepareSog();
   await regenerate();
 }
 

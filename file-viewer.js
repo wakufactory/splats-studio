@@ -1,3 +1,6 @@
+import { disposeSplatMesh } from "./splat-resources.mjs";
+import { setupXR } from "./viewer-xr.mjs";
+
 const viewer = document.querySelector("#file-viewer");
 const viewport = document.querySelector("#viewport");
 const fileInput = document.querySelector("#file");
@@ -19,13 +22,15 @@ function showStatus(message, error = false) {
 }
 
 async function start() {
-  const [THREE, { SparkRenderer, SplatMesh }, { OrbitControls }] = await Promise.all([
+  const [THREE, { SparkRenderer, SplatMesh, SplatAccumulator }, { OrbitControls }] = await Promise.all([
     import("three"), import("@sparkjsdev/spark"), import("three/addons/controls/OrbitControls.js"),
   ]);
-  const renderer = new THREE.WebGLRenderer();
+  const renderer = new THREE.WebGLRenderer({ alpha: true });
   renderer.setClearColor(0x11151b);
   viewport.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
+  const content = new THREE.Group();
+  scene.add(content);
   const spark = new SparkRenderer({ renderer });
   scene.add(spark);
   const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
@@ -35,10 +40,13 @@ async function start() {
   const stereo = new THREE.StereoCamera();
   stereo.aspect = 0.5;
 
-  let model, pointCloud, bounds;
+  let model, pointCloud, bounds, modelBox;
   let showPoints = false, loading = false, dragDepth = 0;
+  const xr = setupXR({ THREE, renderer, scene, content, camera, controls,
+    getBounds: () => modelBox, isLoading: () => loading, resize, showStatus });
 
   function resize() {
+    if (renderer.xr.isPresenting) return;
     document.body.style.setProperty("--stereo-toolbar-height", `${toolbar.offsetHeight}px`);
     const { clientWidth: width, clientHeight: height } = viewport;
     if (!width || !height) return;
@@ -49,6 +57,7 @@ async function start() {
   }
 
   function frameModel() {
+    if (xr.active || !bounds) return;
     const { center, radius } = bounds;
     const vertical = THREE.MathUtils.degToRad(camera.fov / 2);
     const horizontal = Math.atan(Math.tan(vertical) * camera.aspect * (stereoMode.value === "mono" ? 1 : 0.5));
@@ -92,13 +101,14 @@ async function start() {
   }
 
   async function load(file) {
-    if (!file || loading) return;
+    if (!file || loading || xr.active) return;
     if (!/\.(ply|splat|ksplat|spz|sog|zip|rad)$/i.test(file.name)) {
       showStatus(`対応していない形式です · ${file.name}`, true);
       return;
     }
     loading = true;
     openButton.disabled = true;
+    xr.updateButtons();
     showStatus(`読み込み中… ${file.name}`);
     let nextModel, nextPointCloud;
     try {
@@ -129,22 +139,20 @@ async function start() {
         pointCloud.geometry.dispose();
         pointCloud.material.dispose();
       }
-      if (model) {
-        model.removeFromParent();
-        model.dispose();
-      }
+      disposeSplatMesh(model, SplatAccumulator);
       model = nextModel;
       pointCloud = nextPointCloud;
       bounds = sphere;
-      scene.add(model);
-      if (pointCloud) scene.add(pointCloud);
+      modelBox = box;
+      content.add(model);
+      if (pointCloud) content.add(pointCloud);
       updateDisplayMode();
       frameModel();
       empty.hidden = true;
       pointsButton.disabled = resetButton.disabled = false;
       showStatus(`${file.name} · ${countFormat.format(model.numSplats)} splats`);
     } catch (error) {
-      nextModel?.dispose();
+      disposeSplatMesh(nextModel, SplatAccumulator);
       nextPointCloud?.geometry.dispose();
       nextPointCloud?.material.dispose();
       console.error(error);
@@ -152,6 +160,7 @@ async function start() {
     } finally {
       loading = false;
       openButton.disabled = false;
+      xr.updateButtons();
     }
   }
 
@@ -180,7 +189,7 @@ async function start() {
     if (!showPoints && !pointCloud) {
       try {
         pointCloud = createPointCloud(model);
-        scene.add(pointCloud);
+        content.add(pointCloud);
       } catch (error) {
         console.error(error);
         showStatus("点群を作成できませんでした。", true);
@@ -219,7 +228,12 @@ async function start() {
   new ResizeObserver(resize).observe(viewport);
   new ResizeObserver(resize).observe(toolbar);
   resize();
-  const render = () => {
+  const render = (_time, frame) => {
+    if (renderer.xr.isPresenting) {
+      xr.update(frame);
+      renderer.render(scene, camera);
+      return;
+    }
     controls.update();
     const { clientWidth: width, clientHeight: height } = viewport;
     if (!width || !height) return;
@@ -261,7 +275,7 @@ async function start() {
     if (event.source !== parent || event.origin !== location.origin ||
         event.data?.type !== "splat-studio-visibility") return;
     resize();
-    renderer.setAnimationLoop(event.data.active ? render : null);
+    renderer.setAnimationLoop(event.data.active || xr.active ? render : null);
   });
   renderer.setAnimationLoop(window.frameElement?.parentElement.hidden ? null : render);
   openButton.disabled = false;

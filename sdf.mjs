@@ -43,15 +43,28 @@ export function compileSdf(source) {
   return sdf;
 }
 
-export function generateSurface(sdf, { resolution, extent, size, thickness, color, ...effectOptions }) {
+export function generateSurface(sdf, { resolution, extent, size, thickness, color,
+  secondaryColor = "#de7194", secondaryRatio = 0,
+  ambientIntensity = 0.37, mainIntensity = 0.61, mainAzimuth = 46.15, mainElevation = 58.2,
+  fillIntensity = 0.23, ...effectOptions }) {
   const effect = validateEffect(effectOptions);
   if (!Number.isInteger(resolution) || resolution < 16 || resolution > 144 ||
       !Number.isFinite(extent) || extent < 0.1 || extent > 20 ||
       !Number.isFinite(size) || size < 0.3 || size > 1.5 ||
       !Number.isFinite(thickness) || thickness < 0.05 || thickness > 0.8 ||
-      !/^#[0-9a-f]{6}$/i.test(color)) {
+      !/^#[0-9a-f]{6}$/i.test(color) || !/^#[0-9a-f]{6}$/i.test(secondaryColor) ||
+      !Number.isFinite(secondaryRatio) || secondaryRatio < 0 || secondaryRatio > 1) {
     throw new Error("生成パラメータが範囲外です。");
   }
+  const lightingRanges = [[ambientIntensity, 0, 1], [mainIntensity, 0, 2],
+    [fillIntensity, 0, 2], [mainAzimuth, -180, 180], [mainElevation, -90, 90]];
+  if (lightingRanges.some(([value, min, max]) => !Number.isFinite(value) || value < min || value > max)) {
+    throw new Error("照明パラメータが範囲外です。");
+  }
+  const azimuth = mainAzimuth * Math.PI / 180, elevation = mainElevation * Math.PI / 180;
+  // Direction from the surface toward the light; Y is up, azimuth 0 is +Z.
+  const lx = Math.sin(azimuth) * Math.cos(elevation), ly = Math.sin(elevation);
+  const lz = Math.cos(azimuth) * Math.cos(elevation);
   const start = performance.now();
   const sample = (x, y, z) => {
     const d = sdf(x, y, z);
@@ -79,6 +92,7 @@ export function generateSurface(sdf, { resolution, extent, size, thickness, colo
   const ds = new Float64Array(8);
   const offsets = [0, 1, side, side + 1, plane, plane + 1, plane + side, plane + side + 1];
   const rgb = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16) / 255);
+  const secondaryRgb = [1, 3, 5].map(i => parseInt(secondaryColor.slice(i, i + 2), 16) / 255);
   const e = step * 0.04;
   const alpha = 0.92;
 
@@ -127,9 +141,9 @@ export function generateSurface(sdf, { resolution, extent, size, thickness, colo
         } else {
           qx = 1; qy = 0; qw = 0;
         }
-        const key = Math.max(0, 0.38 * nx + 0.85 * ny + 0.365 * nz);
+        const key = Math.max(0, lx * nx + ly * ny + lz * nz);
         const fill = Math.max(0, -0.8 * nx + 0.28 * ny - 0.52 * nz);
-        const light = Math.min(1, 0.37 + 0.61 * key + 0.23 * fill);
+        const light = Math.min(1, ambientIntensity + mainIntensity * key + fillIntensity * fill);
         if (count >= 500_000) throw new Error("スプラットが50万個を超えました。分割数を下げてください。");
         if (count * STRIDE === data.length) {
           const larger = new Float32Array(data.length * 2);
@@ -137,7 +151,7 @@ export function generateSurface(sdf, { resolution, extent, size, thickness, colo
           data = larger;
         }
         data.set([x, y, z, nx, ny, nz, qx, qy, 0, qw,
-          rgb[0] * light, rgb[1] * light, rgb[2] * light, alpha,
+          light, light, light, alpha,
           step * size, step * size, step * size * thickness], count++ * STRIDE);
       }
     }
@@ -145,6 +159,14 @@ export function generateSurface(sdf, { resolution, extent, size, thickness, colo
   if (!count) throw new Error("表面が見つかりません。探索範囲、分割数、SDF の符号を確認してください。");
 
   const surface = addEffect(data.subarray(0, count * STRIDE), sample, step, effect);
+  // Choose colors after effects so every final splat has an independent choice.
+  // Keep this random stream separate from hair placement and shape.
+  let colorState = effect.seed >>> 0;
+  for (let i = 0; i < surface.data.length; i += STRIDE) {
+    colorState = (Math.imul(1664525, colorState) + 1013904223) >>> 0;
+    const selected = colorState / 4294967296 < secondaryRatio ? secondaryRgb : rgb;
+    for (let channel = 0; channel < 3; channel++) surface.data[i + 10 + channel] *= selected[channel];
+  }
   return {
     ...surface, clipped,
     scales: [step * size, step * size, step * size * thickness],

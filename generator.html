@@ -21,7 +21,16 @@
       <p class="eyebrow">SURFACE GENERATOR / SPARK.JS</p>
       <h1>SDF Splat Studio</h1>
     </div>
-    <button id="download" type="button" disabled>PLY を保存</button>
+    <div class="export-tools">
+      <div class="export-buttons">
+        <label class="export-name" for="download-name">保存名
+          <input id="download-name" type="text" placeholder="sdf-torus" aria-label="保存ファイル名（拡張子は自動）" autocomplete="off" spellcheck="false">
+        </label>
+        <button id="download" type="button" disabled>PLY を保存</button>
+        <button id="download-sog" type="button" disabled aria-describedby="sog-status">SOG を保存</button>
+      </div>
+      <p id="sog-status" class="hint" role="status">SOG 保存を確認中…</p>
+    </div>
   </header>
   <main>
     <form id="generator" aria-label="生成設定">
@@ -43,6 +52,19 @@
         <label>面内の広がり<input id="size" type="number" min="0.3" max="1.5" step="any" value="0.72" required></label>
         <label>厚みの比率<input id="thickness" type="number" min="0.05" max="0.8" step="any" value="0.15" required></label>
         <label>ベース色<input id="color" type="color" value="#71debb"></label>
+        <label>補助色<input id="secondaryColor" type="color" value="#de7194"></label>
+        <label class="wide">補助色の割合（%）<output for="secondaryRatio"></output><input id="secondaryRatio" type="range" min="0" max="100" step="1" value="0"></label>
+        <label>乱数シード<input id="seed" type="number" min="0" max="1000000" step="1" value="1" required></label>
+        <p class="hint wide">各 splat を指定の確率で補助色に置き換えます。生成時に反映します。</p>
+      </fieldset>
+      <fieldset>
+        <legend>照明</legend>
+        <label>環境光の強さ<output for="ambientIntensity"></output><input id="ambientIntensity" type="range" min="0" max="1" step="0.01" value="0.37"></label>
+        <label>メインライトの強さ<output for="mainIntensity"></output><input id="mainIntensity" type="range" min="0" max="2" step="0.01" value="0.61"></label>
+        <label>方位角（°）<output for="mainAzimuth"></output><input id="mainAzimuth" type="range" min="-180" max="180" step="0.01" value="46.15"></label>
+        <label>仰角（°）<output for="mainElevation"></output><input id="mainElevation" type="range" min="-90" max="90" step="0.1" value="58.2"></label>
+        <label>補助光の強さ<output for="fillIntensity"></output><input id="fillIntensity" type="range" min="0" max="2" step="0.01" value="0.23"></label>
+        <p class="hint wide">光源のある方向を指定します。方位角 0° は +Z、90° は +X、仰角 90° は真上（+Y）。補助光は固定方向です。「スプラットを生成」で色に反映します。</p>
       </fieldset>
       <fieldset id="effect-settings">
         <legend>表面エフェクト</legend>
@@ -51,7 +73,6 @@
         </select></label>
         <div id="effect-controls" class="wide" hidden>
           <label>密度（本 / 面積 1）<input id="density" type="number" min="0" max="4000" step="10" value="700" required></label>
-          <label>乱数シード<input id="seed" type="number" min="0" max="1000000" step="1" value="1" required></label>
           <label>長さ <output for="hairLength"></output><input id="hairLength" aria-label="長さ" type="range" min="0.01" max="0.6" step="0.005" value="0.16"></label>
           <label>太さ <output for="hairWidth"></output><input id="hairWidth" aria-label="太さ" type="range" min="0.001" max="0.15" step="0.001" value="0.012"></label>
           <label>方向の乱れ <output for="disorder"></output><input id="disorder" aria-label="方向の乱れ" type="range" min="0" max="1" step="0.01" value="0.35"></label>
@@ -70,6 +91,7 @@
     </form>
     <section class="preview" aria-label="Spark プレビュー">
       <div id="viewport"></div>
+      <p id="render-notice" role="status" hidden>描画が極端に遅いため、プレビューを停止しました。分割数や毛・房の密度を下げて「スプラットを生成」を押すと、描画を再開します。</p>
       <div class="preview-tools">
         <span class="eyebrow">SPARK PREVIEW</span>
         <div>

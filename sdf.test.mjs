@@ -43,6 +43,59 @@ test("surface clipping and invalid fields are reported", () => {
   assert.throws(() => compileSdf("const radius = 1;"), /sdf/);
 });
 
+test("secondary colors replace individual splats at a repeatable probability without changing geometry", () => {
+  for (const effect of ["none", "fur", "fluffy"]) {
+    const opts = { resolution: 24, color: "#ff0000", secondaryColor: "#0000ff", effect, density: 30 };
+    const base = generate("sphere", opts);
+    const all = generate("sphere", { ...opts, secondaryRatio: 1 });
+    const mixed = generate("sphere", { ...opts, secondaryRatio: 0.3 });
+    assert.deepEqual(mixed.data, generate("sphere", { ...opts, secondaryRatio: 0.3 }).data);
+    let replaced = 0;
+    for (let i = 0; i < base.data.length; i += STRIDE) {
+      for (const j of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 16]) {
+        assert.equal(mixed.data[i + j], base.data[i + j]);
+      }
+      const brightness = base.data[i + 10];
+      assert.deepEqual([...all.data.subarray(i + 10, i + 13)], [0, 0, brightness]);
+      const secondary = mixed.data[i + 12] > 0;
+      replaced += Number(secondary);
+      assert.deepEqual([...mixed.data.subarray(i + 10, i + 13)], secondary ? [0, 0, brightness] : [brightness, 0, 0]);
+    }
+    assert.ok(Math.abs(replaced / mixed.count - 0.3) < 0.04);
+  }
+  for (const bad of [{ secondaryColor: "bad" }, { secondaryRatio: -0.1 }, { secondaryRatio: 1.1 }, { secondaryRatio: NaN }]) {
+    assert.throws(() => generate("sphere", bad), /パラメータ/);
+  }
+});
+
+test("lighting controls ambient brightness and main light direction without moving splats", () => {
+  const opts = { resolution: 24, color: "#ffffff", fillIntensity: 0 };
+  const ambient = generate("sphere", { ...opts, ambientIntensity: 0.4, mainIntensity: 0 });
+  const dark = generate("sphere", { ...opts, ambientIntensity: 0, mainIntensity: 0 });
+  for (const [azimuth, elevation, axis, sign] of [[0, 0, 5, 1], [90, 0, 3, 1], [0, 90, 4, 1], [0, -90, 4, -1], [180, 0, 5, -1]]) {
+    const lit = generate("sphere", { ...opts, ambientIntensity: 0, mainIntensity: 0.7,
+      mainAzimuth: azimuth, mainElevation: elevation });
+    for (let i = 0; i < lit.data.length; i += STRIDE) {
+      assert.deepEqual(lit.data.subarray(i, i + 10), ambient.data.subarray(i, i + 10));
+      for (let channel = 10; channel < 13; channel++) {
+        near(ambient.data[i + channel], 0.4);
+        assert.equal(dark.data[i + channel], 0);
+        near(lit.data[i + channel], 0.7 * Math.max(0, sign * lit.data[i + axis]));
+      }
+    }
+  }
+  const saturated = generate("sphere", { ...opts, ambientIntensity: 1, mainIntensity: 2, fillIntensity: 2 });
+  for (let i = 0; i < saturated.data.length; i += STRIDE) assert.equal(saturated.data[i + 10], 1);
+  const fill = generate("sphere", { ...opts, ambientIntensity: 0, mainIntensity: 0, fillIntensity: 1 });
+  for (let i = 0; i < fill.data.length; i += STRIDE) {
+    near(fill.data[i + 10], Math.max(0, -0.8 * fill.data[i + 3] + 0.28 * fill.data[i + 4] - 0.52 * fill.data[i + 5]));
+  }
+  for (const bad of [{ ambientIntensity: -1 }, { mainIntensity: NaN }, { mainAzimuth: 181 },
+    { mainElevation: -91 }, { fillIntensity: 3 }]) {
+    assert.throws(() => generate("sphere", bad), /照明パラメータ/);
+  }
+});
+
 test("Gaussian PLY records preserve center, normal, RGB, scale, opacity and WXYZ rotation", () => {
   const result = generate("cut");
   const bytes = encodePly(result);
