@@ -24,6 +24,16 @@
         <h1>Gaussian Splat Viewer</h1>
       </div>
       <div class="actions">
+        <label class="stereo-mode">表示
+          <select id="stereo-mode" disabled>
+            <option value="mono">通常</option>
+            <option value="parallel">平行法</option>
+            <option value="cross">交差法</option>
+          </select>
+        </label>
+        <label id="stereo-strength-control" hidden>立体感 <output id="stereo-strength-value">1.0</output>
+          <input id="stereo-strength" type="range" min="0" max="2" step="0.1" value="1" aria-label="立体感の強さ">
+        </label>
         <button id="points" type="button" aria-pressed="false" disabled>点群表示</button>
         <button id="reset" type="button" disabled>視点リセット</button>
         <button id="open" class="primary" type="button" disabled>ファイルを開く</button>
@@ -35,10 +45,11 @@
       <p>ファイルをここにドロップするか、右上から選択</p>
       <p>PLY / SPLAT / KSPLAT / SPZ / SOG / ZIP / RAD</p>
     </section>
+    <div id="stereo-guide" aria-hidden="true" hidden><span>●</span><span>●</span></div>
     <div id="drop-overlay" hidden>ドロップして開く</div>
     <footer>
       <p id="status" role="status">ビューアーを起動中…</p>
-      <p>ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>
+      <p><span id="stereo-help" hidden></span>ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>
     </footer>
   </main>
   <script type="module" src="./file-viewer.js"></script>

@@ -4,6 +4,10 @@ const fileInput = document.querySelector("#file");
 const openButton = document.querySelector("#open");
 const pointsButton = document.querySelector("#points");
 const resetButton = document.querySelector("#reset");
+const stereoMode = document.querySelector("#stereo-mode");
+const stereoStrength = document.querySelector("#stereo-strength");
+const stereoHelp = document.querySelector("#stereo-help");
+const toolbar = document.querySelector(".toolbar");
 const empty = document.querySelector("#empty");
 const dropOverlay = document.querySelector("#drop-overlay");
 const status = document.querySelector("#status");
@@ -28,11 +32,14 @@ async function start() {
   camera.position.set(0, 0, 3);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  const stereo = new THREE.StereoCamera();
+  stereo.aspect = 0.5;
 
   let model, pointCloud, bounds;
   let showPoints = false, loading = false, dragDepth = 0;
 
   function resize() {
+    document.body.style.setProperty("--stereo-toolbar-height", `${toolbar.offsetHeight}px`);
     const { clientWidth: width, clientHeight: height } = viewport;
     if (!width || !height) return;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -44,7 +51,7 @@ async function start() {
   function frameModel() {
     const { center, radius } = bounds;
     const vertical = THREE.MathUtils.degToRad(camera.fov / 2);
-    const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
+    const horizontal = Math.atan(Math.tan(vertical) * camera.aspect * (stereoMode.value === "mono" ? 1 : 0.5));
     const distance = 1.15 * radius / Math.sin(Math.min(vertical, horizontal));
     controls.enableDamping = false;
     controls.update();
@@ -155,6 +162,20 @@ async function start() {
     void load(file);
   });
   resetButton.addEventListener("click", frameModel);
+  stereoMode.addEventListener("change", () => {
+    const active = stereoMode.value !== "mono";
+    document.body.dataset.stereo = String(active);
+    document.querySelector("#stereo-strength-control").hidden = !active;
+    document.querySelector("#stereo-guide").hidden = !active;
+    stereoHelp.hidden = !active;
+    stereoHelp.textContent = stereoMode.value === "cross"
+      ? "交差法：目を寄せて、2つの白い点を重ねます。"
+      : "平行法：画面の奥を見て、2つの白い点を重ねます。";
+    resize();
+  });
+  stereoStrength.addEventListener("input", () => {
+    document.querySelector("#stereo-strength-value").value = Number(stereoStrength.value).toFixed(1);
+  });
   pointsButton.addEventListener("click", () => {
     if (!showPoints && !pointCloud) {
       try {
@@ -196,10 +217,45 @@ async function start() {
   });
 
   new ResizeObserver(resize).observe(viewport);
+  new ResizeObserver(resize).observe(toolbar);
   resize();
   const render = () => {
     controls.update();
-    renderer.render(scene, camera);
+    const { clientWidth: width, clientHeight: height } = viewport;
+    if (!width || !height) return;
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, width, height);
+    if (stereoMode.value === "mono") {
+      renderer.render(scene, camera);
+      return;
+    }
+    // Parallel camera axes and off-axis frusta avoid vertical disparity.
+    // Orbit target is the zero-parallax plane; separation scales with model/view distance.
+    camera.focus = Math.max(camera.near * 2, camera.position.distanceTo(controls.target));
+    stereo.eyeSep = camera.focus * 0.035 * Number(stereoStrength.value);
+    camera.updateMatrixWorld();
+    stereo.update(camera);
+    // Spark queries world transforms itself. StereoCamera only writes matrixWorld;
+    // keep the local matrix in sync so those queries cannot reset an eye to the origin.
+    for (const eye of [stereo.cameraL, stereo.cameraR]) {
+      eye.matrix.copy(eye.matrixWorld);
+      eye.matrix.decompose(eye.position, eye.quaternion, eye.scale);
+      eye.near = camera.near;
+      eye.far = camera.far;
+      eye.fov = camera.fov;
+      eye.aspect = camera.aspect * 0.5;
+      eye.projectionMatrixInverse.copy(eye.projectionMatrix).invert();
+    }
+    const eyes = stereoMode.value === "cross"
+      ? [stereo.cameraR, stereo.cameraL] : [stereo.cameraL, stereo.cameraR];
+    renderer.setScissorTest(true);
+    for (let index = 0; index < 2; index++) {
+      renderer.setViewport(index * width / 2, 0, width / 2, height);
+      renderer.setScissor(index * width / 2, 0, width / 2, height);
+      renderer.render(scene, eyes[index]);
+    }
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, width, height);
   };
   window.addEventListener("message", event => {
     if (event.source !== parent || event.origin !== location.origin ||
@@ -209,6 +265,7 @@ async function start() {
   });
   renderer.setAnimationLoop(window.frameElement?.parentElement.hidden ? null : render);
   openButton.disabled = false;
+  stereoMode.disabled = false;
   showStatus("ファイルを選択してください。");
 }
 

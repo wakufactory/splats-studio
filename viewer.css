@@ -78,6 +78,18 @@ canvas:active { cursor: grabbing; }
 }
 .file-viewer .toolbar { top: 0; border: 0; background: linear-gradient(#10141aed, #10141a00); }
 .file-viewer .actions { display: flex; gap: 8px; flex-wrap: wrap; pointer-events: auto; }
+.file-viewer .actions { align-items: center; }
+.file-viewer .stereo-mode { display: flex; align-items: center; gap: 6px; }
+.file-viewer .stereo-mode select { max-width: none; }
+#stereo-strength-control { grid-template-columns: auto auto; gap: 2px 8px; width: 110px; }
+#stereo-strength-control output { text-align: right; font-variant-numeric: tabular-nums; }
+#stereo-strength { grid-column: 1 / -1; }
+#stereo-guide { position: absolute; inset: 0; display: flex; pointer-events: none; }
+#stereo-guide span { width: 50%; text-align: center; padding-top: 16px; color: #fff; font-size: 10px; }
+.file-viewer[data-stereo="true"] .toolbar { background: #10141a; }
+.file-viewer[data-stereo="true"] #viewport { top: var(--stereo-toolbar-height, 110px); }
+.file-viewer[data-stereo="true"] #stereo-guide { top: var(--stereo-toolbar-height, 110px); }
+#stereo-help { display: block; color: var(--accent); }
 .file-viewer footer { bottom: 0; background: linear-gradient(0deg, #10141aed, #10141a00); font-size: 12px; color: #bcc9d6; }
 #empty {
   position: absolute; top: 50%; left: 50%; translate: -50% -50%;
