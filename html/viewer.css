@@ -104,6 +104,7 @@ canvas:active { cursor: grabbing; }
   border: 1px dashed #576677; border-radius: 16px; text-align: center; pointer-events: none;
 }
 #empty p { margin-top: 12px; color: #bcc9d6; font-size: 13px; }
+#empty a { color: var(--accent); pointer-events: auto; }
 #drop-overlay {
   position: absolute; inset: 10px; display: grid; place-items: center;
   border: 2px dashed #b4ebd0; border-radius: 14px; background: #16251ee8;

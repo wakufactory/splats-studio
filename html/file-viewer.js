@@ -160,11 +160,32 @@ async function start() {
       nextPointCloud?.geometry.dispose();
       nextPointCloud?.material.dispose();
       console.error(error);
-      showStatus(`読み込めませんでした · ${file.name}`, true);
+      showStatus(`読み込めませんでした · ${file.name} · ${error.message}`, true);
     } finally {
       loading = false;
       openButton.disabled = false;
       xr.updateButtons();
+    }
+  }
+
+  async function loadURL(source) {
+    try {
+      if (!source.trim()) throw new Error("urlにファイルのパスまたはURLを指定してください。");
+      const url = new URL(source, document.baseURI);
+      if (!["http:", "https:"].includes(url.protocol)) {
+        throw new Error("HTTPまたはHTTPSのURLを指定してください。");
+      }
+      const name = decodeURIComponent(url.pathname.split("/").pop());
+      await load({
+        name,
+        async arrayBuffer() {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.arrayBuffer();
+        },
+      });
+    } catch (error) {
+      showStatus(`URLを開けませんでした · ${error.message}`, true);
     }
   }
 
@@ -277,6 +298,8 @@ async function start() {
   openButton.disabled = false;
   stereoMode.disabled = false;
   showStatus("ファイルを選択してください。");
+  const modelURL = new URLSearchParams(location.search).get("url");
+  if (modelURL !== null) void loadURL(modelURL);
   return load;
 }
 

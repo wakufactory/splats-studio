@@ -4,6 +4,8 @@ SDF（符号付き距離関数）の表面を Gaussian Splat に変換し、Spar
 
 配信用ファイルはすべて `html/` にまとめています。一般のWebサーバーへ公開する場合は、`html/` の中身をそのまま配置してください。ビルドは不要です。WebXRにはHTTPSが必要で、`.mjs` はJavaScriptのMIMEタイプで配信してください。ローカルサーバーも `html/` を公開ルートにするため、URLは `/viewer.html` などのままです。
 
+`viewer.html?url=samples/mfd1.sog` のように `url` パラメーターを指定すると、起動時にそのファイルを読み込みます。相対パスは `viewer.html` の場所を基準に解決し、HTTP/HTTPSの絶対URLも利用できます（別ドメインの配信元ではCORS許可が必要）。URLにクエリーを含める場合はパラメーター全体をURLエンコードしてください。起動画面の「サンプルを開く」からも開けます。
+
 ```sh
 npm start
 ```
