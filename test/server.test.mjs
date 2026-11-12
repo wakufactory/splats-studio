@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { X509Certificate } from 'node:crypto';
-import { certificateNames, createStaticServer, ensureCertificate, startServers } from './scripts/serve.mjs';
+import { certificateNames, createStaticServer, ensureCertificate, startServers } from '../scripts/serve.mjs';
 
 function request(server, path, { tls, method = 'GET' } = {}) {
   return new Promise((resolve, reject) => {
@@ -121,13 +121,16 @@ test('default document root serves the studio, modules and workers without expos
     server.listen(0, '127.0.0.1', resolve);
   });
   try {
-    for (const path of ['/', '/viewer.html', '/generator.html', '/file-viewer.js', '/viewer.js', '/viewer-xr.mjs', '/xr-gestures.mjs', '/viewer.css', '/sdf.mjs', '/sdf-worker.mjs', '/sog-worker.mjs', '/splat-resources.mjs', '/render-watchdog.mjs']) {
+    for (const path of ['/', '/viewer.html', '/generator.html', '/file-viewer.js', '/viewer.js', '/viewer-xr.mjs', '/xr-gestures.mjs', '/viewer.css', '/header.css', '/sdf.mjs', '/sdf-worker.mjs', '/sog-worker.mjs', '/splat-resources.mjs', '/render-watchdog.mjs']) {
       assert.equal((await request(server, path)).status, 200, path);
     }
     const worker = await request(server, '/sog-worker.mjs');
     assert.match(worker.headers['content-type'], /javascript/);
-    for (const path of ['/.git/config', '/.certs/server.key', '/%2egit/config', '/scripts/']) {
+    for (const path of ['/.git/config', '/.certs/server.key', '/%2egit/config']) {
       assert.equal((await request(server, path)).status, 403, path);
+    }
+    for (const path of ['/scripts/serve.mjs', '/scripts/', '/package.json', '/README.md', '/test/server.test.mjs']) {
+      assert.equal((await request(server, path)).status, 404, path);
     }
   } finally {
     await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });

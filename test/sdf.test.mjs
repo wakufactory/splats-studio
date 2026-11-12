@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compileSdf, encodePly, generateSurface, presets, STRIDE } from "./sdf.mjs";
+import { compileSdf, encodePly, generateSurface, presets, STRIDE } from "../html/sdf.mjs";
 
 const options = { resolution: 48, extent: 1.5, size: 0.72, thickness: 0.15, color: "#71debb" };
 const generate = (name, overrides) => generateSurface(compileSdf(presets[name].source), { ...options, ...overrides });

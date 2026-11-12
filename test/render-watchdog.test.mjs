@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RenderWatchdog } from "./render-watchdog.mjs";
+import { RenderWatchdog } from "../html/render-watchdog.mjs";
 
 test("normal rendering and occasional slow frames keep running", () => {
   const guard = new RenderWatchdog();

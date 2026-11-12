@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { disposeSplatMesh } from "./splat-resources.mjs";
+import { disposeSplatMesh } from "../html/splat-resources.mjs";
 
 test("retiring rendered meshes releases generated materials and splat resources", () => {
   const generatorProgram = new WeakMap();
