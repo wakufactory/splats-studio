@@ -22,6 +22,10 @@
       <p class="eyebrow">SURFACE GENERATOR / SPARK.JS</p>
       <h1>SDF Splat Studio</h1>
     </div>
+    <div class="preview-actions">
+      <button id="points" type="button" aria-pressed="false" disabled>中心点</button>
+      <button id="reset" type="button" title="視点リセット（モデル全体を表示）" aria-label="視点リセット（モデル全体を表示）" disabled>↺</button>
+    </div>
     <div class="export-tools">
       <div class="export-buttons">
         <label class="export-name" for="download-name">保存名
@@ -95,14 +99,11 @@
       <p id="render-notice" role="status" hidden>描画が極端に遅いため、プレビューを停止しました。分割数や毛・房の密度を下げて「スプラットを生成」を押すと、描画を再開します。</p>
       <div class="preview-tools">
         <span class="eyebrow">SPARK PREVIEW</span>
-        <div>
-          <button id="points" type="button" aria-pressed="false" disabled>中心点</button>
-          <button id="reset" type="button" title="モデル全体を表示" aria-label="モデル全体を表示" disabled>⛶</button>
-        </div>
       </div>
       <p class="preview-help">ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>
     </section>
   </main>
+  <script type="module" src="./display-mode.js"></script>
   <script type="module" src="./viewer.js"></script>
 </body>
 </html>

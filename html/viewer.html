@@ -29,7 +29,7 @@
         <button id="open" class="primary" type="button">開く</button>
         <!-- Leave accept unset: Safari can disable files with unrecognized extensions. -->
         <input id="file" type="file" hidden>
-        <button id="reset" type="button" title="モデル全体を表示" aria-label="モデル全体を表示" disabled>⛶</button>
+        <button id="reset" type="button" title="視点リセット（モデル全体を表示）" aria-label="視点リセット（モデル全体を表示）" disabled>↺</button>
         <div class="file-details">
           <span id="filename" hidden></span>
           <p id="status" role="status">ビューアーを起動中…</p>
@@ -63,6 +63,7 @@
       <p><span id="stereo-help" hidden></span>ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>
     </footer>
   </main>
+  <script type="module" src="./display-mode.js"></script>
   <script type="module" src="./file-viewer.js"></script>
 </body>
 </html>

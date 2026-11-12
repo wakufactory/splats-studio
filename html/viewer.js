@@ -103,7 +103,6 @@ async function start() {
   let sogFilename;
   const renderWatchdog = new RenderWatchdog();
   const renderNotice = byId("render-notice");
-  let previewActive = !window.frameElement?.parentElement.hidden;
 
   function exportFilename(extension) {
     const name = downloadName.value.trim().replace(/\.(ply|sog)$/i, "")
@@ -348,16 +347,9 @@ async function start() {
   };
   function updateRenderLoop() {
     renderWatchdog.resetTiming();
-    renderer.setAnimationLoop(previewActive && !document.hidden && !renderWatchdog.stopped ? render : null);
+    renderer.setAnimationLoop(!document.hidden && !renderWatchdog.stopped ? render : null);
   }
   document.addEventListener("visibilitychange", updateRenderLoop);
-  window.addEventListener("message", event => {
-    if (event.source !== parent || event.origin !== location.origin ||
-        event.data?.type !== "splat-studio-visibility") return;
-    resize();
-    previewActive = Boolean(event.data.active);
-    updateRenderLoop();
-  });
   updateRenderLoop();
   prepareSog();
   await regenerate();

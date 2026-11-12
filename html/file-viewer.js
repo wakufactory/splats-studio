@@ -48,7 +48,8 @@ async function start() {
 
   function resize() {
     if (renderer.xr.isPresenting) return;
-    document.body.style.setProperty("--stereo-toolbar-height", `${toolbar.offsetTop + toolbar.offsetHeight + 12}px`);
+    const toolbarBottom = toolbar.getClientRects().length ? toolbar.offsetTop + toolbar.offsetHeight + 12 : 0;
+    document.body.style.setProperty("--stereo-toolbar-height", `${toolbarBottom}px`);
     const { clientWidth: width, clientHeight: height } = viewport;
     if (!width || !height) return;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -268,13 +269,11 @@ async function start() {
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, width, height);
   };
-  window.addEventListener("message", event => {
-    if (event.source !== parent || event.origin !== location.origin ||
-        event.data?.type !== "splat-studio-visibility") return;
-    resize();
-    renderer.setAnimationLoop(event.data.active || xr.active ? render : null);
-  });
-  renderer.setAnimationLoop(window.frameElement?.parentElement.hidden ? null : render);
+  function updateRenderLoop() {
+    renderer.setAnimationLoop(!document.hidden || xr.active ? render : null);
+  }
+  document.addEventListener("visibilitychange", updateRenderLoop);
+  updateRenderLoop();
   openButton.disabled = false;
   stereoMode.disabled = false;
   showStatus("ファイルを選択してください。");

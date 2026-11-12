@@ -1,4 +1,24 @@
 /* Shared header styling, matching GLBV's floating panels and controls. */
+.headers-hidden .app-header { display: none !important; }
+.fullscreen-mode .preview-help, .file-viewer.fullscreen-mode footer { display: none; }
+.display-controls { position: relative; display: flex; align-items: center; gap: 2px; margin-left: auto; pointer-events: auto; flex-shrink: 0; }
+.headers-hidden > .display-controls {
+  position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right));
+  z-index: 4; padding: 2px;
+  color: #eee; background: #1a1b20e8; border: 1px solid #ffffff1c; border-radius: 8px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+.display-controls button, .app-header .display-controls button {
+  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #eee; background: transparent; border: 1px solid transparent; border-radius: 7px;
+  width: 28px; height: 28px; padding: 5px; cursor: pointer;
+  display: grid; place-items: center;
+}
+.display-controls svg { width: 18px; height: 18px; }
+.display-controls button:hover { background: #ffffff16; }
+.display-controls button:focus-visible { outline: 2px solid #becbff; outline-offset: 2px; }
+.display-notice { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; width: min(280px, calc(100vw - 32px)); margin: 0; padding: 10px 12px; border: 1px solid #ffffff1c; border-radius: 8px; background: #1a1b20f5; font-size: 12px; line-height: 1.5; color: #bcc9d6; }
+body.xr .display-controls { display: none; }
 .app-header, .toolbar.app-header {
   color: #eee;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -72,7 +92,9 @@
 .app-header input[type="range"] { accent-color: #c2ccef; }
 .app-header :focus-visible { outline: 2px solid #becbff; outline-offset: 4px; }
 .app-header .hint { color: #b5b8c4; }
-.app-header [role="tablist"] { display: flex; gap: 5px; flex-wrap: wrap; }
+.preview-actions { display: flex; align-items: center; gap: 5px; }
+.app-header .export-tools { margin-left: auto; }
+.app-header .export-tools + .display-controls { margin-left: 0; }
 .file-tools {
   pointer-events: auto;
   display: flex;
@@ -100,10 +122,11 @@
 @media (max-width: 680px) {
   .app-header, .toolbar.app-header { margin: 12px; padding-left: 12px; gap: 8px; flex-wrap: wrap; }
   .app-header .export-tools { width: 100%; max-width: none; }
-  .app-header .export-buttons { flex-wrap: wrap; justify-content: flex-start; }
+  .app-header .export-buttons { flex-wrap: wrap; justify-content: flex-end; }
   .app-header .export-name { flex: 1 1 100%; }
   .app-header .export-name input { flex: 1; }
-  .app-header .export-tools .hint { text-align: left; }
+  .app-header .export-tools .hint { text-align: right; }
+  .app-header .export-tools + .display-controls { margin-left: auto; }
   .file-tools { gap: 8px; }
   .file-tools .header-title { flex-basis: 100%; }
   .file-tools .divider { display: none; }

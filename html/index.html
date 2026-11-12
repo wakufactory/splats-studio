@@ -3,67 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="0; url=./generator.html">
   <title>Splat Studio</title>
-  <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #11151b; color: #edf1f6; }
-    * { box-sizing: border-box; }
-    body { margin: 0; height: 100dvh; display: flex; flex-direction: column; }
-    nav { align-self: flex-start; flex-wrap: wrap; }
-    section { flex: 1; min-height: 0; }
-    iframe { display: block; width: 100%; height: 100%; border: 0; }
-    [hidden] { display: none !important; }
-  </style>
-  <link rel="stylesheet" href="./header.css">
 </head>
 <body>
-  <nav class="app-header" aria-label="アプリ切り替え">
-    <strong class="brand">Splat Studio</strong>
-    <span class="divider" aria-hidden="true"></span>
-    <div role="tablist" aria-label="ツール">
-      <button id="generator-tab" type="button" role="tab" aria-selected="true" aria-controls="generator-panel">SDF 生成ツール</button>
-      <button id="viewer-tab" type="button" role="tab" aria-selected="false" aria-controls="viewer-panel" tabindex="-1">ファイルビュアー</button>
-    </div>
-  </nav>
-  <section id="generator-panel" role="tabpanel" aria-labelledby="generator-tab">
-    <iframe src="./generator.html" title="SDF 生成ツール"></iframe>
-  </section>
-  <section id="viewer-panel" role="tabpanel" aria-labelledby="viewer-tab" hidden>
-    <iframe data-src="./viewer.html" title="ファイルビュアー" allow="xr-spatial-tracking; fullscreen"></iframe>
-  </section>
-  <script type="module">
-    const tabs = [...document.querySelectorAll('[role="tab"]')];
-    function selectTab(selected) {
-      for (const tab of tabs) {
-        const active = tab === selected;
-        tab.setAttribute("aria-selected", String(active));
-        tab.tabIndex = active ? 0 : -1;
-        const panel = document.getElementById(tab.getAttribute("aria-controls"));
-        panel.hidden = !active;
-        const frame = panel.querySelector("iframe");
-        if (active && frame.dataset.src) {
-          frame.src = frame.dataset.src;
-          delete frame.dataset.src;
-        }
-        frame.contentWindow.postMessage({ type: "splat-studio-visibility", active }, location.origin);
-      }
-    }
-    for (const tab of tabs) {
-      tab.addEventListener("click", () => selectTab(tab));
-      tab.addEventListener("keydown", event => {
-        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        event.preventDefault();
-        const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : tabs.find(item => item !== tab);
-        selectTab(next);
-        next.focus();
-      });
-    }
-    for (const frame of document.querySelectorAll("iframe")) {
-      frame.addEventListener("load", () => {
-        frame.contentWindow.postMessage({
-          type: "splat-studio-visibility", active: !frame.parentElement.hidden,
-        }, location.origin);
-      });
-    }
-  </script>
+  <p><a href="./generator.html">SDF 生成ツール</a> · <a href="./viewer.html">ファイルビュアー</a></p>
 </body>
 </html>
