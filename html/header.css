@@ -1,6 +1,7 @@
 /* Shared header styling, matching GLBV's floating panels and controls. */
 .headers-hidden .app-header { display: none !important; }
-.fullscreen-mode .preview-help, .file-viewer.fullscreen-mode footer { display: none; }
+.fullscreen-mode .preview-help, .file-viewer.fullscreen-mode footer,
+.headers-hidden .preview-help, .file-viewer.headers-hidden footer { display: none; }
 .display-controls { position: relative; display: flex; align-items: center; gap: 2px; margin-left: auto; pointer-events: auto; flex-shrink: 0; }
 .headers-hidden > .display-controls {
   position: fixed; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right));
@@ -113,8 +114,6 @@ body.xr .display-controls { display: none; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  user-select: text;
-  -webkit-user-select: text;
 }
 .file-details #status { color: #92959f; font-size: 11px; }
 .file-details #status[data-kind="error"] { color: #ffb9b3; }

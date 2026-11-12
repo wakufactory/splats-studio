@@ -6,7 +6,9 @@
   --accent: #a6dfc5;
   --border: #384554;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+button, select { -webkit-user-select: auto; user-select: auto; }
 body, h1, h2, p { margin: 0; }
 body { display: flex; flex-direction: column; height: 100dvh; }
 .toolbar {
