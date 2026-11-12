@@ -39,6 +39,7 @@ button, select, input, textarea {
   font: inherit; font-size: 13px;
 }
 button, select { padding: 7px 10px; cursor: pointer; }
+#reset { font-size: 24px; height: 34px; padding: 0 7px; }
 select { max-width: 64%; }
 button:disabled { opacity: .48; cursor: default; }
 button:enabled:hover { filter: brightness(1.18); }
@@ -83,7 +84,7 @@ canvas:active { cursor: grabbing; }
   justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 16px; pointer-events: none; z-index: 1;
 }
-.file-viewer .toolbar { top: 0; border: 0; background: linear-gradient(#10141aed, #10141a00); }
+.file-viewer .toolbar { top: 0; pointer-events: auto; }
 .file-viewer .actions { display: flex; gap: 8px; flex-wrap: wrap; pointer-events: auto; }
 .file-viewer .actions { align-items: center; }
 .file-viewer .stereo-mode { display: flex; align-items: center; gap: 6px; }
@@ -93,7 +94,6 @@ canvas:active { cursor: grabbing; }
 #stereo-strength { grid-column: 1 / -1; }
 #stereo-guide { position: absolute; inset: 0; display: flex; pointer-events: none; }
 #stereo-guide span { width: 50%; text-align: center; padding-top: 16px; color: #fff; font-size: 10px; }
-.file-viewer[data-stereo="true"] .toolbar { background: #10141a; }
 .file-viewer[data-stereo="true"] #viewport { top: var(--stereo-toolbar-height, 110px); }
 .file-viewer[data-stereo="true"] #stereo-guide { top: var(--stereo-toolbar-height, 110px); }
 #stereo-help { display: block; color: var(--accent); }

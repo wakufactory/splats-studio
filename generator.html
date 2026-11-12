@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SDF Splat Studio</title>
   <link rel="stylesheet" href="./viewer.css">
+  <link rel="stylesheet" href="./header.css">
   <script type="importmap">
     {
       "imports": {
@@ -16,8 +17,8 @@
   </script>
 </head>
 <body>
-  <header class="toolbar">
-    <div>
+  <header class="toolbar app-header">
+    <div class="header-title">
       <p class="eyebrow">SURFACE GENERATOR / SPARK.JS</p>
       <h1>SDF Splat Studio</h1>
     </div>
@@ -96,7 +97,7 @@
         <span class="eyebrow">SPARK PREVIEW</span>
         <div>
           <button id="points" type="button" aria-pressed="false" disabled>中心点</button>
-          <button id="reset" type="button" disabled>視点リセット</button>
+          <button id="reset" type="button" title="モデル全体を表示" aria-label="モデル全体を表示" disabled>⛶</button>
         </div>
       </div>
       <p class="preview-help">ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>

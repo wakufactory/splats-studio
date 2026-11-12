@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gaussian Splat Viewer</title>
   <link rel="stylesheet" href="./viewer.css">
+  <link rel="stylesheet" href="./header.css">
   <script type="importmap">
     {
       "imports": {
@@ -18,41 +19,47 @@
 <body class="file-viewer">
   <main id="file-viewer" aria-label="Gaussian Splat Viewer">
     <div id="viewport"></div>
-    <header class="toolbar">
-      <div>
-        <p class="eyebrow">SPARK.JS / FILE VIEWER</p>
-        <h1>Gaussian Splat Viewer</h1>
+    <header class="toolbar app-header">
+      <div class="file-tools">
+        <div class="header-title">
+          <p class="eyebrow">SPARK.JS / FILE VIEWER</p>
+          <h1>Gaussian Splat Viewer</h1>
+        </div>
+        <span class="divider" aria-hidden="true"></span>
+        <button id="open" class="primary" type="button">開く</button>
+        <!-- Leave accept unset: Safari can disable files with unrecognized extensions. -->
+        <input id="file" type="file" hidden>
+        <button id="reset" type="button" title="モデル全体を表示" aria-label="モデル全体を表示" disabled>⛶</button>
+        <div class="file-details">
+          <span id="filename" hidden></span>
+          <p id="status" role="status">ビューアーを起動中…</p>
+        </div>
       </div>
       <div class="actions">
         <label class="stereo-mode">表示
           <select id="stereo-mode" disabled>
-            <option value="mono">通常</option>
+            <option value="mono">単眼</option>
             <option value="parallel">平行法</option>
             <option value="cross">交差法</option>
           </select>
         </label>
         <label id="stereo-strength-control" hidden>立体感 <output id="stereo-strength-value">1.0</output>
-          <input id="stereo-strength" type="range" min="0" max="2" step="0.1" value="1" aria-label="立体感の強さ">
+          <input id="stereo-strength" type="range" min="0" max="3" step="0.1" value="1" aria-label="立体感の強さ">
         </label>
         <button id="points" type="button" aria-pressed="false" disabled>点群表示</button>
-        <button id="reset" type="button" disabled>視点リセット</button>
         <button id="ar" type="button" disabled title="WebXR対応状況を確認中">AR</button>
         <button id="vr" type="button" disabled title="WebXR対応状況を確認中">VR</button>
-        <button id="open" class="primary" type="button" disabled>ファイルを開く</button>
-        <!-- Leave accept unset: Safari can disable files with unrecognized extensions. -->
-        <input id="file" type="file" hidden>
       </div>
     </header>
     <section id="empty">
       <h2>Splat ファイルを開く</h2>
-      <p>ファイルをここにドロップするか、右上から選択</p>
+      <p>ファイルをここにドロップするか、左上から選択</p>
       <p>PLY / SPLAT / KSPLAT / SPZ / SOG / ZIP / RAD</p>
     </section>
     <div id="stereo-guide" aria-hidden="true" hidden><span>●</span><span>●</span></div>
     <div id="drop-overlay" hidden>ドロップして開く</div>
     <button id="exit-xr" type="button" hidden>XRを終了</button>
     <footer>
-      <p id="status" role="status">ビューアーを起動中…</p>
       <p><span id="stereo-help" hidden></span>ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>
     </footer>
   </main>

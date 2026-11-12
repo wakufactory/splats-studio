@@ -14,6 +14,7 @@ const toolbar = document.querySelector(".toolbar");
 const empty = document.querySelector("#empty");
 const dropOverlay = document.querySelector("#drop-overlay");
 const status = document.querySelector("#status");
+const filename = document.querySelector("#filename");
 const countFormat = new Intl.NumberFormat("ja-JP");
 
 function showStatus(message, error = false) {
@@ -47,7 +48,7 @@ async function start() {
 
   function resize() {
     if (renderer.xr.isPresenting) return;
-    document.body.style.setProperty("--stereo-toolbar-height", `${toolbar.offsetHeight}px`);
+    document.body.style.setProperty("--stereo-toolbar-height", `${toolbar.offsetTop + toolbar.offsetHeight + 12}px`);
     const { clientWidth: width, clientHeight: height } = viewport;
     if (!width || !height) return;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -150,7 +151,9 @@ async function start() {
       frameModel();
       empty.hidden = true;
       pointsButton.disabled = resetButton.disabled = false;
-      showStatus(`${file.name} · ${countFormat.format(model.numSplats)} splats`);
+      filename.textContent = filename.title = file.name;
+      filename.hidden = false;
+      showStatus(`${countFormat.format(model.numSplats)} splats`);
     } catch (error) {
       disposeSplatMesh(nextModel, SplatAccumulator);
       nextPointCloud?.geometry.dispose();
@@ -164,12 +167,6 @@ async function start() {
     }
   }
 
-  openButton.addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
-    fileInput.value = "";
-    void load(file);
-  });
   resetButton.addEventListener("click", frameModel);
   stereoMode.addEventListener("change", () => {
     const active = stereoMode.value !== "mono";
@@ -281,9 +278,25 @@ async function start() {
   openButton.disabled = false;
   stereoMode.disabled = false;
   showStatus("ファイルを選択してください。");
+  return load;
 }
 
-start().catch(error => {
+// Open the native chooser synchronously, even while rendering dependencies load.
+openButton.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files[0];
+  fileInput.value = "";
+  if (!file) return;
+  try {
+    const load = await ready;
+    await load(file);
+  } catch {
+    showStatus("起動できませんでした。WebGL 2 とインターネット接続を確認してください。", true);
+  }
+});
+
+const ready = start();
+ready.catch(error => {
   console.error(error);
   showStatus("起動できませんでした。WebGL 2 とインターネット接続を確認してください。", true);
 });

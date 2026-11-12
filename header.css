@@ -1,0 +1,110 @@
+/* Shared header styling, matching GLBV's floating panels and controls. */
+.app-header, .toolbar.app-header {
+  color: #eee;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  background: #1a1b20e8;
+  border: 1px solid #ffffff1c;
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px #0002;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 17px;
+  margin: 20px;
+  flex-shrink: 0;
+}
+.app-header .header-title { min-width: 0; }
+.app-header h1, .app-header .brand {
+  color: #fff;
+  font-size: 17px;
+  letter-spacing: .06em;
+  font-weight: 750;
+  margin: 0;
+}
+.app-header .eyebrow {
+  color: #9ea6be;
+  font: 600 10px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: .06em;
+}
+.app-header .divider {
+  width: 1px;
+  height: 20px;
+  background: #ffffff20;
+  flex-shrink: 0;
+}
+.app-header button, .app-header select {
+  font: inherit;
+  color: inherit;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 7px;
+  height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.app-header select { background: #25262c; padding: 0 6px; }
+.app-header button:hover:not(:disabled), .app-header select:hover {
+  background: #ffffff16;
+  filter: none;
+}
+.app-header button:disabled { opacity: .32; cursor: default; }
+.app-header button.primary, .app-header button[aria-selected="true"] {
+  background: #e9edfa;
+  color: #1c2234;
+  font-weight: 600;
+  border-color: transparent;
+  flex: none;
+}
+.app-header button.primary:hover:not(:disabled), .app-header button[aria-selected="true"]:hover { background: #fff; }
+.app-header button[aria-pressed="true"] { color: #e9edfa; border-color: #9ea6be; background: #ffffff16; }
+.app-header input:not([type="range"]) {
+  background: #25262c;
+  border: 1px solid #ffffff1c;
+  border-radius: 7px;
+  color: inherit;
+  font: inherit;
+  height: 34px;
+}
+.app-header input[type="range"] { accent-color: #c2ccef; }
+.app-header :focus-visible { outline: 2px solid #becbff; outline-offset: 4px; }
+.app-header .hint { color: #b5b8c4; }
+.app-header [role="tablist"] { display: flex; gap: 5px; flex-wrap: wrap; }
+.file-tools {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex: 1 1 560px;
+  min-width: 0;
+}
+.file-tools .header-title { flex-shrink: 0; }
+.file-details { flex: 1 1 160px; min-width: 0; }
+.file-details #filename {
+  display: block;
+  color: #b5b8c4;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.file-details #status { color: #92959f; font-size: 11px; }
+.file-details #status[data-kind="error"] { color: #ffb9b3; }
+.file-viewer .actions { margin-left: auto; }
+@media (max-width: 680px) {
+  .app-header, .toolbar.app-header { margin: 12px; padding-left: 12px; gap: 8px; flex-wrap: wrap; }
+  .app-header .export-tools { width: 100%; max-width: none; }
+  .app-header .export-buttons { flex-wrap: wrap; justify-content: flex-start; }
+  .app-header .export-name { flex: 1 1 100%; }
+  .app-header .export-name input { flex: 1; }
+  .app-header .export-tools .hint { text-align: left; }
+  .file-tools { gap: 8px; }
+  .file-tools .header-title { flex-basis: 100%; }
+  .file-tools .divider { display: none; }
+}
