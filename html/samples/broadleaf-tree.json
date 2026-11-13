@@ -1,0 +1,21 @@
+{
+  "format": "sdf-splat-studio",
+  "version": 1,
+  "source": "version 1;\n\n// 丸い葉群を重ねた広葉樹。上は +Y。\nsdf trunk(x, y, z) {\n  let bend = x - 0.045 * sin(3 * y);\n  let radius = 0.105 - 0.035 * y;\n  return max(length([bend, z]) - radius, abs(y) - 0.85);\n}\nsdf branch(x, y, z) {\n  // 原点から [0.63, 0.72, 0] への、先細りの枝。\n  let t = clamp((x * 0.63 + y * 0.72) / 0.9153, 0, 1);\n  return length([x - 0.63 * t, y - 0.72 * t, z]) - mix(0.085, 0.035, t);\n}\nsdf crown(x, y, z) {\n  let a = (length([(x + 0.52) / 0.66, (y + 0.12) / 0.59, z / 0.66]) - 1) * 0.59;\n  let b = (length([(x - 0.49) / 0.70, (y + 0.04) / 0.64, (z + 0.08) / 0.63]) - 1) * 0.63;\n  let c = (length([x / 0.72, (y - 0.42) / 0.64, (z + 0.14) / 0.66]) - 1) * 0.64;\n  let d = (length([(x + 0.08) / 0.78, (y + 0.08) / 0.57, (z - 0.43) / 0.59]) - 1) * 0.57;\n  let e = (length([(x + 0.18) / 0.66, y / 0.57, (z + 0.48) / 0.55]) - 1) * 0.55;\n  let clusters = min(a, b, c, d, e);\n  return clusters + 0.022 * sin(19 * x + 3 * sin(7 * z)) * sin(21 * y) * sin(18 * z);\n}\n\ndefine bark {\n  color = \"#725039\"; secondaryColor = \"#98704b\"; secondaryRatio = 0.18;\n  size = 0.8; thickness = 0.18;\n}\nscene {\n  seed = 31;\n  defaults {\n    sampling { extent = 1; resolution = 64; }\n    splat = bark;\n    effect { type = none; }\n  }\n  lighting {\n    ambient = 0.48;\n    main { intensity = 0.58; azimuth = -35; elevation = 50; }\n    fill { intensity = 0.18; }\n  }\n  object trunk {\n    shape = trunk;\n    transform { position = [0, -0.64, 0]; }\n  }\n  object rightBranch {\n    shape = branch;\n    transform { position = [0, -0.47, 0]; }\n  }\n  object leftBranch {\n    shape = branch;\n    transform { position = [0, -0.35, 0]; rotation = [0, 160, 0]; }\n  }\n  object frontBranch {\n    shape = branch;\n    transform { position = [0, -0.22, 0]; rotation = [0, -80, 0]; scale = 0.8; }\n  }\n  object leaves {\n    shape = crown;\n    sampling { extent = 1.3; resolution = 80; }\n    transform { position = [0, 0.62, 0]; }\n    splat {\n      color = \"#43833c\"; secondaryColor = \"#8dbb4c\"; secondaryRatio = 0.28;\n      size = 0.72; thickness = 0.3;\n    }\n    effect {\n      type = fluffy; density = 210; length = 0.065; width = 0.025;\n      disorder = 0.7; variation = 0.55; clump = 0.35; clumpSize = 0.13;\n    }\n  }\n}",
+  "defaults": {
+    "extent": 1.5,
+    "resolution": 64,
+    "size": 0.72,
+    "thickness": 0.15,
+    "color": "#71debb",
+    "secondaryColor": "#de7194",
+    "secondaryRatio": 0,
+    "seed": 1,
+    "ambientIntensity": 0.37,
+    "mainIntensity": 0.61,
+    "mainAzimuth": 46.15,
+    "mainElevation": 58.2,
+    "fillIntensity": 0.23
+  },
+  "name": "broadleaf-tree"
+}
