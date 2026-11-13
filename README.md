@@ -47,6 +47,18 @@ WebXR対応環境では、ファイルを開いた後に「AR」「VR」で没�
 
 SOG 保存は [SplatTransform](https://github.com/playcanvas/splat-transform) 3.10.3 と WebP の WebAssembly を CDN から読み込み、専用 Worker 内で非可逆圧縮します。データのサーバー送信はありません。この生成ツールの SH0 データでは WebGPU は不要です。準備中や生成中・変換中は SOG ボタンを無効にし、非対応環境やライブラリの読み込み失敗時にも無効のまま理由を表示します。失敗後はページの再読み込みで再試行できます。変換中もプレビュー操作と PLY 保存は利用できます。保存した SOG はファイルビュアーで開けます。
 
+## ジェネレーターの編集・JSON保存
+
+PCでは CAD と同じ3ペイン構成（左：デフォルト設定、中央：Sparkプレビュー、右：Scene DSLコード）です。狭い画面ではプレビューとエディタを上下に配置し、スマートフォンでは3ペインを縦に並べます。各ペインは独立してスクロールできます。
+
+エディタは CodeMirror 6 を使い、行番号・DSL構文の色分け・補完・検索・Undo/Redoに対応します。Tab / Shift+Tabでインデント、Ctrl / ⌘ + Fで検索、Ctrl / ⌘ + Enterで生成できます。
+
+左上の「JSON を保存」でDSL全文と画面の全デフォルト設定・保存名を1つのJSONに保存し、「JSON を開く」で復元します。読み込みでは現在のプレビューを保持し、「スプラットを生成」で読み込んだ内容を反映します。不正なJSONや設定値、未対応バージョンはエラーにし、編集内容は保持します。途中のDSLも保存でき、DSL自体の構文検証は生成時に行います。PLY / SOGの保存は生成済みの結果を書き出します。
+
+JSON形式は `format: "sdf-splat-studio"`、`version: 1`、`source`（DSL文字列）、`defaults`（全デフォルト設定）、`name`（任意の保存名）です。`defaults` のキーは `extent`, `resolution`, `size`, `thickness`, `color`, `secondaryColor`, `secondaryRatio`, `seed`, `ambientIntensity`, `mainIntensity`, `mainAzimuth`, `mainElevation`, `fillIntensity`。`secondaryRatio` は0〜1で、画面では0〜100%に変換します。角度は度単位、色は `#RRGGBB` です。
+
+配信にはビルド済みの `html/source-editor.bundle.js` とライセンス表示を同梱しており、従来どおり `html/` の配置だけで利用できます。エディタを変更する場合のみ `npm ci`、`npm run build:editor` で再ビルドしてください。ソースは `editor/source-editor.mjs` です。
+
 ## Scene DSL
 
 [DSLの書き方](html/dsl.html)（配信時は `/dsl.html`）に構文・関数・設定項目の一覧があります。SDF は負が内部、0 が表面、正が外部です。

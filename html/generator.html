@@ -6,6 +6,7 @@
   <title>SDF Splat Studio</title>
   <link rel="stylesheet" href="./viewer.css">
   <link rel="stylesheet" href="./header.css">
+  <link rel="stylesheet" href="./generator.css">
   <script type="importmap">
     {
       "imports": {
@@ -22,32 +23,31 @@
       <p class="eyebrow">SURFACE GENERATOR / SPARK.JS</p>
       <h1>SDF Splat Studio</h1>
     </div>
-    <div class="preview-actions">
-      <button id="points" type="button" aria-pressed="false" disabled>中心点</button>
-      <button id="reset" type="button" title="視点リセット（モデル全体を表示）" aria-label="視点リセット（モデル全体を表示）" disabled>↺</button>
-    </div>
-    <div class="export-tools">
-      <div class="export-buttons">
-        <label class="export-name" for="download-name">保存名
-          <input id="download-name" type="text" placeholder="sdf-torus" aria-label="保存ファイル名（拡張子は自動）" autocomplete="off" spellcheck="false">
-        </label>
-        <button id="download" type="button" disabled>PLY を保存</button>
-        <button id="download-sog" type="button" disabled aria-describedby="sog-status">SOG を保存</button>
-      </div>
-      <p id="sog-status" class="hint" role="status">SOG 保存を確認中…</p>
-    </div>
+    <p id="status" role="status">起動中…</p>
   </header>
   <main>
     <form id="generator" aria-label="生成設定">
-      <div class="form-heading">
-        <h2>Scene DSL を編集</h2>
-        <select id="preset" aria-label="Scene DSL プリセット">
-          <option value="" hidden>カスタム</option>
-        </select>
+      <div class="export-tools">
+        <div class="export-buttons">
+          <label class="export-name" for="download-name">保存名
+            <input id="download-name" type="text" placeholder="sdf-torus" aria-label="保存ファイル名（拡張子は自動）" autocomplete="off" spellcheck="false">
+          </label>
+        <button id="load-project" type="button">JSON を開く</button>
+        <button id="save-project" type="button">JSON を保存</button>
+        <p id="project-status" class="hint" role="status">DSL とデフォルト設定をまとめて保存できます。</p>
+
+        <input id="project-file" type="file" accept=".json,application/json" hidden>
+          <button id="download" type="button" disabled>PLY を保存</button>
+          <button id="download-sog" type="button" disabled aria-describedby="sog-status">SOG を保存</button>
+        </div>
+        <p id="sog-status" class="hint" role="status">SOG 保存を確認中…</p>
       </div>
-      <p class="hint">複数のSDFとobjectを定義できます。負が内部、0 が表面。Y 軸が上です。</p>
-      <textarea id="source" aria-label="Scene DSL コード" spellcheck="false" autocapitalize="off" autocomplete="off" required></textarea>
-      <p class="hint">下の設定は全objectのデフォルト値です。DSLのdefaults・object内で上書きできます。エフェクトはDSL内で指定します。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
+      <div class="form-actions">
+        <button class="primary" id="generate" type="submit" disabled>スプラットを生成</button>
+        <button id="cancel" type="button" hidden>中止</button>
+      </div>
+      <h2>デフォルト設定</h2>
+      <p class="hint">各 object のデフォルト値です。DSL の defaults・object 内で上書きできます。</p>
       <fieldset>
         <legend>サンプリング（デフォルト）</legend>
         <label>探索範囲 ±<input id="extent" type="number" min="0.1" max="20" step="any" value="1.5" required></label>
@@ -72,22 +72,34 @@
         <label>補助光の強さ<output for="fillIntensity"></output><input id="fillIntensity" type="range" min="0" max="2" step="0.01" value="0.23"></label>
         <p class="hint wide">光源のある方向を指定します。方位角 0° は +Z、90° は +X、仰角 90° は真上（+Y）。補助光は固定方向です。「スプラットを生成」で色に反映します。</p>
       </fieldset>
-      <div class="form-actions">
-        <button class="primary" id="generate" type="submit" disabled>スプラットを生成</button>
-        <button id="cancel" type="button" hidden>中止</button>
-      </div>
-      <p id="status" role="status">起動中…</p>
     </form>
     <section class="preview" aria-label="Spark プレビュー">
       <div id="viewport"></div>
       <p id="render-notice" role="status" hidden>描画が極端に遅いため、プレビューを停止しました。分割数や毛・房の密度を下げて「スプラットを生成」を押すと、描画を再開します。</p>
       <div class="preview-tools">
         <span class="eyebrow">SPARK PREVIEW</span>
+        <div class="preview-actions">
+          <button id="points" type="button" aria-pressed="false" disabled>点群表示</button>
+          <button id="reset" type="button" title="視点リセット（モデル全体を表示）" aria-label="視点リセット（モデル全体を表示）" disabled>↺</button>
+        </div>
       </div>
       <p class="preview-help">ドラッグで回転 · スクロールでズーム · 右ドラッグで移動</p>
     </section>
+    <section class="source-pane" aria-label="Scene DSL エディタ">
+      <div class="form-heading">
+        <h2>Scene DSL を編集</h2>
+        <select id="preset" aria-label="Scene DSL プリセット">
+          <option value="" hidden>カスタム</option>
+        </select>
+      </div>
+      <p class="hint">複数のSDFとobjectを定義できます。負が内部、0 が表面。Y 軸が上です。</p>
+      <div class="source-code"><textarea form="generator" id="source" aria-label="Scene DSL コード" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></div>
+      <p class="hint">エフェクトはDSL内で指定します。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
+      <p class="hint editor-help">Tab：インデント · Ctrl / ⌘ + F：検索 · Ctrl / ⌘ + Enter：生成</p>
+    </section>
   </main>
   <script type="module" src="./display-mode.js"></script>
+  <script src="./source-editor.bundle.js"></script>
   <script type="module" src="./viewer.js"></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import { readSettings, applySettings, parseProject, serializeProject, projectFilename } from "./generator-project.mjs";
 import { scenePresets as presets } from "./scene-presets.mjs";
 import { encodePly, STRIDE } from "./sdf.mjs";
 import { disposeSplatMesh } from "./splat-resources.mjs";
@@ -11,8 +12,8 @@ const status = byId("status"), countFormat = new Intl.NumberFormat("ja-JP");
 const downloadSog = byId("download-sog"), sogStatus = byId("sog-status");
 const downloadName = byId("download-name");
 
-function saveBytes(bytes, filename) {
-  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+function saveBytes(bytes, filename, type = "application/octet-stream") {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -30,7 +31,14 @@ function showStatus(message, kind = "") {
 for (const [id, { name }] of Object.entries(presets)) preset.add(new Option(name, id));
 preset.value = "torus";
 source.value = presets.torus.source;
-preset.addEventListener("change", () => { source.value = presets[preset.value].source; });
+const editor = globalThis.SplatSourceEditor?.mount(source, () => {
+  if (!generate.disabled) form.requestSubmit();
+});
+function setSource(value) {
+  if (editor) editor.setValue(value);
+  else { source.value = value; source.dispatchEvent(new Event("input", { bubbles: true })); }
+}
+preset.addEventListener("change", () => { if (presets[preset.value]) setSource(presets[preset.value].source); });
 source.addEventListener("input", () => {
   preset.value = Object.keys(presets).find(id => presets[id].source === source.value) ?? "";
 });
@@ -43,12 +51,54 @@ function updateRangeOutputs() {
 form.addEventListener("input", updateRangeOutputs);
 updateRangeOutputs();
 
-// Keep indentation useful in the plain text DSL editor.
+// The textarea remains usable if the editor bundle is unavailable.
 source.addEventListener("keydown", event => {
-  if (event.key !== "Tab" || event.shiftKey) return;
-  event.preventDefault();
-  source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
-  source.dispatchEvent(new Event("input", { bubbles: true }));
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    if (!generate.disabled) form.requestSubmit();
+  } else if (event.key === "Tab" && !event.shiftKey) {
+    event.preventDefault();
+    source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
+    source.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+});
+
+const projectFile = byId("project-file"), loadProject = byId("load-project");
+const projectStatus = byId("project-status");
+function showProjectStatus(message, kind = "") {
+  projectStatus.textContent = message;
+  projectStatus.dataset.kind = kind;
+}
+loadProject.addEventListener("click", () => projectFile.click());
+projectFile.addEventListener("change", async () => {
+  const file = projectFile.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 2_000_000) throw new Error("JSON は2 MB以内にしてください。");
+    const project = parseProject(await file.text());
+    // Validate the entire document before changing any editor or control.
+    applySettings(project.defaults, byId);
+    setSource(project.source);
+    downloadName.value = project.name || file.name.replace(/\.json$/i, "");
+    updateRangeOutputs();
+    showProjectStatus(`${file.name} を読み込みました。「スプラットを生成」で反映します。`);
+  } catch (error) {
+    showProjectStatus(`読み込めませんでした：${error.message}`, "error");
+  } finally {
+    projectFile.value = "";
+  }
+});
+byId("save-project").addEventListener("click", () => {
+  try {
+    if (!form.reportValidity()) return;
+    const name = downloadName.value.trim();
+    const json = serializeProject(source.value, readSettings(byId), name);
+    const filename = projectFilename(name, preset.value ? `sdf-${preset.value}` : "sdf-scene");
+    saveBytes(json, filename, "application/json;charset=utf-8");
+    showProjectStatus(`${filename} を保存しました。`);
+  } catch (error) {
+    showProjectStatus(`保存できませんでした：${error.message}`, "error");
+  }
 });
 
 function sampleInWorker(payload, signal) {
@@ -103,9 +153,7 @@ async function start() {
   const renderNotice = byId("render-notice");
 
   function exportFilename(extension) {
-    const name = downloadName.value.trim().replace(/\.(ply|sog)$/i, "")
-      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/[. ]+$/g, "");
-    return `${name || outputName}.${extension}`;
+    return projectFilename(downloadName.value, outputName, extension);
   }
 
   function updateSogButton() {
@@ -262,15 +310,10 @@ async function start() {
 
   async function regenerate() {
     if (job || sogBusy) return;
-    const options = Object.fromEntries(["resolution", "extent", "size", "thickness", "seed",
-      "ambientIntensity", "mainIntensity", "mainAzimuth", "mainElevation", "fillIntensity"].map(
-      id => [id, byId(id).valueAsNumber],
-    ));
-    options.color = byId("color").value;
-    options.secondaryColor = byId("secondaryColor").value;
-    options.secondaryRatio = byId("secondaryRatio").valueAsNumber / 100;
+    const options = readSettings(byId);
     const name = preset.value ? `sdf-${preset.value}` : "sdf-surface";
     job = new AbortController();
+    loadProject.disabled = projectFile.disabled = true;
     updateSogButton();
     generate.disabled = true;
     cancel.hidden = false;
@@ -295,6 +338,7 @@ async function start() {
       else showStatus(`生成できませんでした：${error.message.replace(/[。.]$/, "")}。${previous}`, "error");
     } finally {
       job = undefined;
+      loadProject.disabled = projectFile.disabled = false;
       generate.disabled = false;
       cancel.hidden = true;
       updateSogButton();

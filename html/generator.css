@@ -1,0 +1,77 @@
+/* Settings / preview / source, following the CAD workspace. */
+.scene-generator > .toolbar.app-header {
+  margin: 0;
+  padding: 4px 10px;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+.scene-generator .app-header .header-title { flex-shrink: 0; }
+.scene-generator .app-header #status { flex: 1 1 180px; min-width: 0; }
+.scene-generator .preview-actions {
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #171e27e8;
+}
+.scene-generator main {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) minmax(320px, 36%);
+  overflow: hidden;
+}
+.scene-generator #generator { min-width: 0; padding: 14px; }
+.scene-generator fieldset { flex-shrink: 0; }
+.scene-generator .source-pane {
+  min-width: 0; min-height: 0; padding: 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  border-left: 1px solid var(--border); background: #171e27;
+}
+.scene-generator .source-code {
+  display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 8px; background: #10161e;
+}
+.scene-generator .source-code textarea {
+  flex: 1; height: 100%; min-height: 0; border: 0; border-radius: 0; resize: none;
+}
+.scene-generator .source-code.cm-mounted > textarea { display: none; }
+.scene-generator .cm-editor { width: 100%; }
+.scene-generator .cm-editor * { -webkit-user-select: text; user-select: text; }
+.scene-generator .cm-gutters { -webkit-user-select: none; user-select: none; }
+.scene-generator .cm-search { display: flex; flex-wrap: wrap; gap: 4px; }
+.scene-generator .cm-search input { width: auto; max-width: 100%; }
+.scene-generator .cm-search input[type="checkbox"] { width: auto; }
+.scene-generator .cm-search label { display: inline-flex; align-items: center; }
+.scene-generator .project-actions { display: flex; gap: 8px; }
+.scene-generator .project-actions button { flex: 1; }
+.scene-generator #project-status[data-kind="error"] { color: #ffb9b3; }
+.scene-generator .export-tools { width: 100%; max-width: none; text-align: left; }
+.scene-generator .export-buttons { flex-wrap: wrap; }
+.scene-generator .export-name { flex: 1 1 100%; }
+.scene-generator .export-name input { flex: 1; width: 0; }
+.scene-generator .export-buttons button { flex: 1; }
+.scene-generator .form-actions { flex-shrink: 0; }
+@media (min-width: 801px) and (max-width: 1100px) {
+  .scene-generator main { grid-template-columns: 228px minmax(0, 1fr) minmax(280px, 34%); }
+  .scene-generator #generator, .scene-generator .source-pane { padding: 10px; }
+  .scene-generator .form-heading { flex-wrap: wrap; }
+}
+@media (max-width: 800px) {
+  .scene-generator main {
+    display: grid; grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 50%) minmax(0, 50%);
+  }
+  .scene-generator #generator { grid-column: 1; grid-row: 1 / -1; overflow-y: auto; border-top: 0; }
+  .scene-generator .preview { grid-column: 2; grid-row: 1; order: 0; height: auto; }
+  .scene-generator .source-pane { grid-column: 2; grid-row: 2; border-left: 0; border-top: 1px solid var(--border); gap: 8px; padding: 10px; }
+  .scene-generator .form-heading { flex-wrap: wrap; }
+  .scene-generator .source-pane > .hint:not(.editor-help) { display: none; }
+}
+@media (max-width: 520px) {
+  .scene-generator main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 28%) minmax(0, 32%) minmax(0, 40%); }
+  .scene-generator #generator { grid-column: 1; grid-row: 1; border-right: 0; border-bottom: 1px solid var(--border); }
+  .scene-generator .preview { grid-column: 1; grid-row: 2; }
+  .scene-generator .source-pane { grid-column: 1; grid-row: 3; }
+  .scene-generator .editor-help { display: none; }
+}
