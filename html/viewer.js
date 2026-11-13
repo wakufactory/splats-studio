@@ -94,6 +94,7 @@ async function start() {
   const camera = new THREE.PerspectiveCamera(45, 1, 0.001, 10000);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  controls.dampingFactor = 0.2;
   const viewDirection = new THREE.Vector3(1.7, 1.3, 2.3).normalize();
 
   let result, model, pointCloud, bounds, job;

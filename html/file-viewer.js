@@ -61,6 +61,7 @@ async function start() {
   camera.position.set(0, 0, 3);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  controls.dampingFactor = 0.2;
   const stereo = new THREE.StereoCamera();
   stereo.aspect = 0.5;
 
