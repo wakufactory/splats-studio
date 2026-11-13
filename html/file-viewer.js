@@ -10,11 +10,16 @@ const resetButton = document.querySelector("#reset");
 const stereoMode = document.querySelector("#stereo-mode");
 const stereoStrength = document.querySelector("#stereo-strength");
 const stereoHelp = document.querySelector("#stereo-help");
+const lodEnabled = document.querySelector("#lod-enabled");
+const lodCount = document.querySelector("#lod-count");
+const lodScale = document.querySelector("#lod-scale");
+const lodScaleValue = document.querySelector("#lod-scale-value");
 const toolbar = document.querySelector(".toolbar");
 const empty = document.querySelector("#empty");
 const dropOverlay = document.querySelector("#drop-overlay");
 const status = document.querySelector("#status");
 const filename = document.querySelector("#filename");
+const splatCount = document.querySelector("#splat-count");
 const countFormat = new Intl.NumberFormat("ja-JP");
 
 function showStatus(message, error = false) {
@@ -43,6 +48,30 @@ async function start() {
 
   let model, pointCloud, bounds, modelBox;
   let showPoints = false, loading = false, dragDepth = 0;
+  let lastCountUpdate = -Infinity;
+  function updateSplatCount(time) {
+    if (!model || time - lastCountUpdate < 250) return;
+    lastCountUpdate = time;
+    const total = model.splats.getNumSplats();
+    const selected = showPoints ? total : model.numSplats;
+    const text = `${showPoints ? "表示中の点" : "表示中"} ${countFormat.format(selected)} / 元データ ${countFormat.format(total)}`;
+    if (splatCount.textContent !== text) splatCount.textContent = text;
+    splatCount.hidden = false;
+  }
+  function updateLod() {
+    spark.enableLod = lodEnabled.checked;
+    spark.lodSplatCount = lodCount.value === "" ? undefined : Number(lodCount.value);
+    spark.lodSplatScale = Number(lodScale.value);
+    // Explicitly select the retained originals when LoD is disabled.
+    if (model) model.enableLod = lodEnabled.checked;
+    lodScaleValue.value = `${Number(lodScale.value).toFixed(2)}×`;
+    lodEnabled.disabled = showPoints;
+    lodCount.disabled = lodScale.disabled = showPoints || !lodEnabled.checked;
+  }
+  lodEnabled.addEventListener("change", updateLod);
+  lodCount.addEventListener("change", updateLod);
+  lodScale.addEventListener("input", updateLod);
+  updateLod();
   const xr = setupXR({ THREE, renderer, scene, content, camera, controls,
     getBounds: () => modelBox, isLoading: () => loading, resize, showStatus });
 
@@ -78,7 +107,8 @@ async function start() {
   }
 
   function createPointCloud(splats) {
-    const positions = new Float32Array(splats.numSplats * 3);
+    // numSplats becomes the current LoD selection count after rendering.
+    const positions = new Float32Array(splats.splats.getNumSplats() * 3);
     const colors = new Float32Array(positions.length);
     const rgb = new THREE.Color();
     splats.forEachSplat((index, center, _scales, _rotation, _opacity, color) => {
@@ -100,6 +130,7 @@ async function start() {
     model.visible = spark.visible = !showPoints;
     if (pointCloud) pointCloud.visible = showPoints;
     pointsButton.setAttribute("aria-pressed", String(showPoints));
+    updateLod();
   }
 
   async function load(file) {
@@ -111,11 +142,11 @@ async function start() {
     loading = true;
     openButton.disabled = true;
     xr.updateButtons();
-    showStatus(`読み込み中… ${file.name}`);
+    showStatus(`読み込み・LoD データ作成中… ${file.name}`);
     let nextModel, nextPointCloud;
     try {
       const fileBytes = new Uint8Array(await file.arrayBuffer());
-      nextModel = new SplatMesh({ fileBytes, fileName: file.name });
+      nextModel = new SplatMesh({ fileBytes, fileName: file.name, lod: true, nonLod: true });
       await nextModel.initialized;
       if (!nextModel.numSplats) throw new Error("スプラットがありません。");
 
@@ -143,6 +174,7 @@ async function start() {
       }
       disposeSplatMesh(model, SplatAccumulator);
       model = nextModel;
+      lastCountUpdate = -Infinity;
       pointCloud = nextPointCloud;
       bounds = sphere;
       modelBox = box;
@@ -251,6 +283,7 @@ async function start() {
     if (renderer.xr.isPresenting) {
       xr.update(frame);
       renderer.render(scene, camera);
+      updateSplatCount(_time);
       return;
     }
     controls.update();
@@ -260,6 +293,7 @@ async function start() {
     renderer.setViewport(0, 0, width, height);
     if (stereoMode.value === "mono") {
       renderer.render(scene, camera);
+      updateSplatCount(_time);
       return;
     }
     // Parallel camera axes and off-axis frusta avoid vertical disparity.
@@ -289,6 +323,7 @@ async function start() {
     }
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, width, height);
+    updateSplatCount(_time);
   };
   function updateRenderLoop() {
     renderer.setAnimationLoop(!document.hidden || xr.active ? render : null);
