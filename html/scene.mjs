@@ -38,10 +38,45 @@ export function compileScene(source, uiDefaults = {}) {
     // Enum literals are allowed only where the schema expects an effect type.
     return evaluate(entry.value);
   };
-  const group = entry => {
-    if (!entry.block) throw dslError(entry.token, "{ ... } で設定してください。");
-    return entry.block;
-  };
+  const blockNames = new Set(["sampling", "splat", "effect", "lighting", "transform", "main", "fill"]);
+  const resolved = new Map(), active = new Set(), resolvedBlocks = new WeakSet();
+  function merge(base, overrides) {
+    if (base === overrides || !overrides.size) return base;
+    const result = new Map(base);
+    for (const [name, entry] of overrides) {
+      const previous = result.get(name);
+      result.set(name, previous?.block && entry.block
+        ? { ...entry, block: merge(previous.block, entry.block) } : entry);
+    }
+    return result;
+  }
+  function definition(token, depth) {
+    const name = token.value;
+    if (!ast.defines.has(name)) throw dslError(token, `未定義のdefineです: ${name}`);
+    if (active.has(name)) throw dslError(token, `defineの循環参照は使えません: ${name}`);
+    if (resolved.has(name)) return resolved.get(name);
+    active.add(name);
+    const result = group(ast.defines.get(name), depth);
+    active.delete(name); resolved.set(name, result);
+    return result;
+  }
+  function group(entry, depth = 0) {
+    if (depth > 32) throw dslError(entry.token, "define・設定の参照が深すぎます。");
+    if (!entry.reference && entry.block && resolvedBlocks.has(entry.block)) return entry.block;
+    const reference = entry.reference ?? (entry.value?.type === "name" ? entry.value.token : null);
+    if (!entry.block && !reference) throw dslError(entry.token, "{ ... } またはdefine名で設定してください。");
+    const base = reference ? definition(reference, depth + 1) : new Map();
+    const overrides = new Map();
+    for (const [name, child] of entry.block ?? []) {
+      overrides.set(name, child.block || child.reference || blockNames.has(name)
+        ? { block: group(child, depth + 1), token: child.token } : child);
+    }
+    const result = merge(base, overrides);
+    resolvedBlocks.add(result);
+    return result;
+  }
+  // Resolve even unused definitions so missing names and cycles are caught early.
+  for (const [name, entry] of ast.defines) definition({ ...entry.token, value: name }, 0);
   function settings(entries, schema) {
     const output = {};
     for (const [name, entry] of entries) {
@@ -77,11 +112,12 @@ export function compileScene(source, uiDefaults = {}) {
     }
     return output;
   }
-  const defaults = { ...sceneDefaults, ...uiDefaults, ...lighting(ast.lighting), ...groups(ast.defaults) };
+  const defaults = { ...sceneDefaults, ...uiDefaults, ...lighting(group(ast.lighting)), ...groups(group(ast.defaults)) };
   if (ast.seed) defaults.seed = validate("seed", value(ast.seed), ast.seed.token);
   for (const [key, v] of Object.entries(defaults)) validate(key, v, ast.seed?.token ?? ast.objects[0].token);
   const objects = ast.objects.map(object => {
-    const { entries, token, name } = object;
+    const { token, name } = object;
+    const entries = group({ block: object.entries, token });
     const options = { ...defaults, ...groups(entries, true) };
     const shape = entries.get("shape");
     if (!shape || shape.value?.type !== "name" || !ast.sdfs.has(shape.value.name)) {

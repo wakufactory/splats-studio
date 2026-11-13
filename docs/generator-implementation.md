@@ -40,7 +40,7 @@ flowchart TD
 | [html/scene-presets.mjs](../html/scene-presets.mjs) | `scenePresets`。各プリセットは `{ name, source }`。sourceは完成したDSLテキスト |
 | [html/sdf-worker.mjs](../html/sdf-worker.mjs) | UIと `generateScene` の通信アダプター。進捗・結果・エラーを返信 |
 | [html/scene-dsl.mjs](../html/scene-dsl.mjs) | `parseScene`、`compileDefinitions`、`dslError`。字句解析、構文解析、式のコード生成、参照検査 |
-| [html/scene.mjs](../html/scene.mjs) | `sceneDefaults`、`compileScene`、`generateScene`。設定の正規化、object生成、transform、照明、結合 |
+| [html/scene.mjs](../html/scene.mjs) | `sceneDefaults`、`compileScene`、`generateScene`。define参照・継承の解決、設定の正規化、object生成、transform、照明、結合 |
 | [html/sdf.mjs](../html/sdf.mjs) | `STRIDE`、`generateSurface`、`effectDefaults`、`encodePly`。格子サンプリングとGaussian生成の本体 |
 | [html/sog-worker.mjs](../html/sog-worker.mjs) | 圧縮ライブラリの初期化、座標変換、メモリ上のPLY経由でのSOG出力 |
 | [html/splat-resources.mjs](../html/splat-resources.mjs) | `disposeSplatMesh`。Sparkの生成マテリアルを含む旧モデルの解放 |
@@ -54,6 +54,8 @@ flowchart TD
 スタイルは `viewer.css` が共通の基礎、`header.css` がヘッダーと全画面操作、`generator.css` がgenerator固有の3ペイン配置とCodeMirrorの調整です。後から読み込む `generator.css` がgeneratorのレイアウトを上書きします。800px以下では設定列＋右側上下ペイン、520px以下では縦3段へ切り替えます。
 
 `sdf.mjs` には旧JavaScript形式用の `presets` と `compileSdf` も残っています。これらは低レベルのSDFテストで使用しており、現在のgenerator UIと生成Workerは呼び出しません。UI側のプリセットは `scene-presets.mjs` を変更します。
+
+テディベアの `scenePresets.teddy.source` と [html/samples/teddy-bear.json](../html/samples/teddy-bear.json) のsourceは同じDSLを保持します。配色は `bearCoat`、`creamCoat` とその派生定義、毛は `bearFur`、`patchFur`、毛なしは `smoothSurface` に共通化しています。腹の毛の長さや口元・鼻・結び目の色などの差分はobject側で上書きします。サンプルを変更する場合は両方のsourceを同期してください。
 
 ## 3. 編集・JSON・UI設定
 
@@ -118,17 +120,30 @@ JSONの構造は次のとおりです。`defaults` は `defaultSettings` の全�
 | --- | --- |
 | `constants` | トップレベルのlet。`{ name, value, token }` の配列 |
 | `sdfs` | SDF名をキーとするMap。引数、ローカルlet、return式、位置情報 |
+| `defines` | define名をキーとするMap。値は設定エントリー。設定の参照・継承はこの段階では未解決 |
 | `objects` | 宣言順の `{ name, token, entries }` の配列 |
-| `defaults`, `lighting` | 設定名をキーとするMap |
+| `defaults`, `lighting` | 設定エントリー。省略時は `{ block: new Map() }` |
 | `seed` | 共通シードの式と位置情報。省略時はundefined |
 
-設定Mapの要素は `{ value, token }` または `{ block, token }` です。式ノードのtypeは `literal`、`name`、`array`、`unary`、`binary`、`conditional`、`call` です。
+設定Mapの要素とdefineの本体は、次の設定エントリーで表します。`block` は設定名をキーとするMapです。
+
+| 構文 | 設定エントリー |
+| --- | --- |
+| `splat { ... }` / `define coat { ... }` | `{ block, token }` |
+| `splat = coat;` / `define alias = coat;` | `{ value, token }`。valueは名前の式ノード |
+| `splat coat { ... }` / `define paleCoat coat { ... }` | `{ block, reference, token }`。referenceは参照名のトークン |
+
+`blockEntry` がこの3形式を解析します。通常の `color = "#ffffff";` なども `{ value, token }` です。ブロックの参照か設定値の式かは、後段で使用箇所に応じて判断します。式ノードのtypeは `literal`、`name`、`array`、`unary`、`binary`、`conditional`、`call` です。
 
 `version 1;` は省略可能ですが、書く場合は1のみを受け付けます。sceneは1つ、objectは1つ以上が必要です。SDFの引数は3つで、本体はローカルletの列と最後のreturnで構成します。
+
+defineはトップレベルで宣言し、名前の重複は構文解析時に拒否します。定数・SDFとは別の名前空間を持ち、定義順に依存せず参照できます。DSLとJSONのversionは1のままです。
 
 ### 4.2 `compileDefinitions(ast)`
 
 トップレベルletを順番に評価し、各SDFのASTをJavaScript関数へコンパイルして `{ functions, evaluate }` を返します。`functions` はSDF名で参照するオブジェクト、`evaluate(node)` は設定値などの定数式を評価する関数です。
+
+この関数名のDefinitionsは定数とSDFを指し、`define` の設定展開は行いません。define内の値の式も、使用時に同じ `evaluate` で評価します。
 
 コード生成では、引数を `p0`〜`p2`、ローカル変数を `v0`〜へ割り当てます。関数参照は組み込み関数テーブル `b` とユーザーSDFテーブル `f` に限定します。入力のソース全体をJavaScriptとして実行せず、検証したASTから式を組み立てます。ただし、その生成コードを関数化するため内部では `new Function` を使っています。配信環境のCSPを設定する場合は動的コード生成との整合が必要です。
 
@@ -141,6 +156,12 @@ JSONの構造は次のとおりです。`defaults` は `defaultSettings` の全�
 ### 5.1 `compileScene(source, uiDefaults = {})`
 
 解析・関数化に続き、`scene.mjs` が設定ブロックを検証して、生成できるobjectの配列を返します。
+
+内部の `definition`、`group`、`merge` がdefineを解決します。`definition` は名前を `ast.defines` から探し、解決中の名前をSetで追跡して直接・間接の循環を拒否します。未定義名と循環は参照トークンの行・列付きエラーになります。使用されない定義も参照解決するため、未定義参照・循環を検出します。ただし設定名・値のスキーマ検証は、実際に使うブロックの文脈で行います。
+
+`group` はインラインブロック・名前参照・参照＋上書きを設定Mapへ正規化し、`merge` はブロック同士を再帰的にマージします。未指定の項目は参照先から継承し、明示した値だけ置き換えます。解決済み定義はMapにキャッシュし、正規化済みブロックはWeakSetで管理して再展開を避けます。キャッシュは `compileScene` の呼び出し内でのみ有効です。
+
+参照構文は `sampling`、`splat`、`effect`、`lighting`、`transform`、照明内の `main`・`fill`、scene直下の `defaults`・`lighting` で使えます。たとえば `defaults = bearStyle;` で複数の設定ブロックをまとめて継承できます。各参照では、参照先の設定へローカルの上書きを適用してから、下記のscene/object間の優先順位を適用します。
 
 ```js
 { objects: [{ name, token, sdf, options, transform }] }
@@ -310,6 +331,7 @@ Workerは変換間で再利用し、ライブラリのsourceは処理後にclose
 | DSL長 | 100,000文字 | `scene-dsl.mjs`、JSONのsource検証 |
 | 式の再帰的な解析深度 | 64 | `scene-dsl.mjs: expression` |
 | 設定ブロックの入れ子 | 16 | `scene-dsl.mjs: block` |
+| define・設定の解決 | `group` の再帰深度が32を超えると拒否。循環参照不可。解決済みの定義・ブロックは再展開しない | `scene.mjs: definition/group` |
 | SDF呼び出し依存の深さ | 32。再帰不可 | `compileDefinitions` |
 | 分割数 | 各軸16〜144 | UI、scene・SDF・JSONの検証 |
 | 下地の抽出数 | object単体で500,000以下 | `generateSurface` |
@@ -335,10 +357,11 @@ npm run build:editor
 | --- | --- |
 | SDFの組み込み関数 | `scene-dsl.mjs` のbuiltinsと引数数、エディターのfunctions、DSLヘルプ、sceneテスト |
 | 新しい構文・演算子 | tokenize、expression/parseScene、ASTのcode生成、エディターの色分け、構文のテスト |
+| define・設定ブロックの参照 | `scene-dsl.mjs` のblockEntry/defines、`scene.mjs` のdefinition/group/merge。ブロックの種類を追加する場合はblockNamesとスキーマ処理も更新 |
 | 新しいsplat/effectパラメータ | sceneの設定名マッピング・範囲、SDFの検証と生成、ヘルプ、生成テスト |
 | UIのデフォルト項目 | HTML、projectのdefaultSettings/ranges、sceneDefaults、保存・復元テスト。既存JSONとの互換性も検討 |
 | effectの種類 | effect種別の検証、addEffect、裸のenumの許可、sceneDefaults、エディター、ヘルプ、プリセット |
-| プリセット | `scene-presets.mjs`。UIから継承させる値はDSLへ固定値を書かない |
+| プリセット | `scene-presets.mjs`。UIから継承させる値はDSLへ固定値を書かない。JSONサンプルがある場合はsourceを同期 |
 | 内部splat形式 | STRIDEと全生成処理、scene変換、Spark/点群構築、PLY、SOG座標変換、関連テストを一緒に変更 |
 | Sparkのバージョン | HTMLのimport map、SplatMesh初期化、splat-resourcesの内部API依存、ブラウザー表示 |
 | SOGライブラリ | Worker内のESM/WASMの両URL、ライブラリAPI、出力の座標系と読込互換性 |
@@ -353,7 +376,7 @@ npm test
 
 | テスト | 対象 |
 | --- | --- |
-| [test/scene.test.mjs](../test/scene.test.mjs) | プリセット、式、設定継承、object別の色・effect、乱数の再現性、transform、照明、エラー、scene全体の上限 |
+| [test/scene.test.mjs](../test/scene.test.mjs) | プリセット、式、設定継承、define参照・派生・別名・前方参照・入れ子の上書き、直書きとの生成データ一致、未定義・循環・深さ・使用文脈の検証、object別の色・effect、乱数の再現性、transform、照明、エラー、scene全体の上限 |
 | [test/sdf.test.mjs](../test/sdf.test.mjs) | ゼロ面と法線、トーラスの穴、境界、配色、照明、PLY、毛の向き・寸法、密度、effectの再現性 |
 | [test/generator-project.test.mjs](../test/generator-project.test.mjs) | JSON往復、入力検証、設定復元、割合の単位、ファイル名処理 |
 | [test/splat-resources.test.mjs](../test/splat-resources.test.mjs) | 生成マテリアルとmeshの解放手順 |

@@ -82,6 +82,86 @@ test("each object has its own surface, color and effect, with stable seeds acros
   }
 });
 
+test("define references and local overrides produce the same splats as inline settings", () => {
+  const source = `${ball}
+    let hair = 0.05;
+    define coat { color = "#ffcc88"; size = 0.8; }
+    define shortFur { type = fur; density = 10; length = hair; width = 0.005; }
+    scene {
+      defaults { splat = coat; }
+      object a { shape = ball; effect = shortFur; }
+      object b { shape = ball; splat coat { color = "#ffffff"; } effect shortFur { length = 0.1; } }
+      object c { shape = ball; splat = coat; effect = shortFur; }
+    }`;
+  const inline = scene(`
+    object a { shape = ball; effect { type = fur; density = 10; length = 0.05; width = 0.005; } }
+    object b { shape = ball; splat { color = "#ffffff"; } effect { type = fur; density = 10; length = 0.1; width = 0.005; } }
+    object c { shape = ball; effect { type = fur; density = 10; length = 0.05; width = 0.005; } }
+  `, 'defaults { splat { color = "#ffcc88"; size = 0.8; } }');
+  assert.deepEqual(generate(source).data, generate(inline).data);
+});
+
+test("define inheritance merges nested settings and supports forward references and aliases", () => {
+  const source = `${ball}
+    define custom common {
+      splat { color = "#ffffff"; }
+      lighting { main { intensity = 0.7; } }
+    }
+    define common {
+      splat = coat;
+      effect = hair;
+      sampling { resolution = 24; }
+      lighting { ambient = 0.2; main { intensity = 0.5; azimuth = 70; } }
+    }
+    define coat { color = "#ff0000"; size = 0.9; }
+    define hair { type = fur; length = 0.1; }
+    define alias = custom;
+    define placement { position = [2, 0, 0]; scale = 2; }
+    scene {
+      defaults = alias;
+      object a { shape = ball; transform = placement; effect hair { type = none; } }
+      object b { shape = ball; }
+    }`;
+  const [a, b] = compileScene(source).objects;
+  assert.equal(a.options.color, "#ffffff");
+  assert.equal(a.options.size, 0.9);
+  assert.equal(a.options.resolution, 24);
+  assert.equal(a.options.mainIntensity, 0.7);
+  assert.equal(a.options.mainAzimuth, 70);
+  assert.equal(a.options.ambientIntensity, 0.2);
+  assert.equal(a.options.effect, "none");
+  assert.equal(b.options.effect, "fur");
+  assert.equal(b.options.hairLength, 0.1);
+  assert.deepEqual(a.transform, { position: [2, 0, 0], rotation: [0, 0, 0], scale: 2 });
+});
+
+test("define errors retain locations and validate settings in their usage context", () => {
+  const invalid = [
+    ['define coat {} define coat {}', '', /define名が重複/],
+    ['', 'splat = missing;', /未定義のdefine/],
+    ['', 'splat missing {}', /未定義のdefine/],
+    ['define a = b; define b = a;', '', /循環参照/],
+    ['define a { lighting { main = a; } }', '', /循環参照/],
+    ['define a a {}', '', /循環参照/],
+    ['define a = missing;', '', /未定義のdefine/],
+    ['define coat { color = "red"; }', 'splat = coat;', /color/],
+    ['define hair { type = fur; }', 'splat = hair;', /未知の設定/],
+    ['define coat { color = "#ffffff"; color = "#000000"; }', '', /重複/],
+    ['define hair { density = 5000; }', 'effect = hair;', /density/],
+    ['define coat {}', 'splat = "coat";', /define名/],
+    ['define coat {}', 'splat = coat();', /define名/],
+  ];
+  for (const [definitions, settings, message] of invalid) {
+    assert.throws(() => compileScene(`${definitions}\n${scene(`object a { shape = ball; ${settings} }`)}`), error => {
+      assert.match(error.message, /\d+行 \d+列:/);
+      assert.match(error.message, message);
+      return true;
+    });
+  }
+  const chain = Array.from({ length: 40 }, (_, i) => `define d${i} = d${i + 1};`).join("\n");
+  assert.throws(() => compileScene(`${chain}\ndefine d40 {}\n${scene('object a { shape = ball; }')}`), /\d+行 \d+列:.*深すぎ/);
+});
+
 test("transforms move positions, rotate normals and Gaussian axes, scale effects and update bounds", () => {
   const base = generate(scene('object item { shape = ball; effect { type = fur; density = 10; } }'));
   const transformed = generate(scene(`object item {

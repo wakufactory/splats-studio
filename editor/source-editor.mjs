@@ -6,7 +6,7 @@ import { indentService, indentUnit, StreamLanguage } from "@codemirror/language"
 import { completeFromList } from "@codemirror/autocomplete";
 import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 
-const keywords = ["version", "let", "sdf", "return", "scene", "defaults", "object",
+const keywords = ["version", "let", "define", "sdf", "return", "scene", "defaults", "object",
   "sampling", "splat", "effect", "lighting", "transform"];
 const properties = ["shape", "seed", "resolution", "extent", "size", "thickness", "color",
   "secondaryColor", "secondaryRatio", "type", "density", "length", "width", "disorder", "variation",

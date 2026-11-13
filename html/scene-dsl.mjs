@@ -91,25 +91,29 @@ export function parseScene(source) {
     const value = expression(); expect(";");
     return { name: name.value, value, token: name };
   }
+  function blockEntry(token) {
+    let reference;
+    if (peek().kind === "id") reference = identifier();
+    if (peek().value === "{" || reference) {
+      if (++depth > 16) throw dslError(token, "設定の入れ子が深すぎます。");
+      const entry = { block: block(), reference, token }; depth--;
+      return entry;
+    }
+    expect("="); const value = expression(); expect(";");
+    return { value, token };
+  }
   function block() {
     expect("{");
     const entries = new Map();
     while (!take("}")) {
       const key = identifier();
       if (entries.has(key.value)) throw dslError(key, `「${key.value}」が重複しています。`);
-      let entry;
-      if (peek().value === "{") {
-        if (++depth > 16) throw dslError(key, "設定の入れ子が深すぎます。");
-        entry = { block: block(), token: key }; depth--;
-      } else {
-        expect("="); entry = { value: expression(), token: key }; expect(";");
-      }
-      entries.set(key.value, entry);
+      entries.set(key.value, blockEntry(key));
     }
     return entries;
   }
-  const constants = [], sdfs = new Map(), objects = [];
-  let defaults = new Map(), lighting = new Map(), seed, sceneSeen = false, versionSeen = false;
+  const constants = [], sdfs = new Map(), defines = new Map(), objects = [];
+  let defaults = { block: new Map() }, lighting = { block: new Map() }, seed, sceneSeen = false, versionSeen = false;
   while (peek().kind !== "end") {
     const token = identifier();
     if (token.value === "version") {
@@ -118,7 +122,12 @@ export function parseScene(source) {
       if (peek().kind !== "number" || peek().value !== 1) throw dslError(peek(), "対応するversionは1です。");
       index++; expect(";");
     } else if (token.value === "let") constants.push(binding());
-    else if (token.value === "sdf") {
+    else if (token.value === "define") {
+      const name = identifier();
+      if (defines.has(name.value)) throw dslError(name, "define名が重複しています。");
+      // A definition may extend another definition: define shortFur fur { ... }
+      defines.set(name.value, blockEntry(name));
+    } else if (token.value === "sdf") {
       const name = identifier();
       if (sdfs.has(name.value)) throw dslError(name, "SDF名が重複しています。");
       expect("(");
@@ -144,8 +153,8 @@ export function parseScene(source) {
         } else {
           if (fields.has(field.value)) throw dslError(field, "設定が重複しています。");
           fields.add(field.value);
-          if (field.value === "defaults") defaults = block();
-          else if (field.value === "lighting") lighting = block();
+          if (field.value === "defaults") defaults = blockEntry(field);
+          else if (field.value === "lighting") lighting = blockEntry(field);
           else if (field.value === "seed") { expect("="); seed = { value: expression(), token: field }; expect(";"); }
           else throw dslError(field, `sceneに「${field.value}」は指定できません。`);
         }
@@ -153,7 +162,7 @@ export function parseScene(source) {
     } else throw dslError(token, `未知の宣言です: ${token.value}`);
   }
   if (!sceneSeen || !objects.length) throw dslError(peek(), "scene にobjectを1つ以上定義してください。");
-  return { constants, sdfs, objects, defaults, lighting, seed };
+  return { constants, sdfs, defines, objects, defaults, lighting, seed };
 }
 
 const builtins = {

@@ -63,6 +63,8 @@ JSON形式は `format: "sdf-splat-studio"`、`version: 1`、`source`（DSL文字
 
 ## Scene DSL
 
+「テディベア」プリセットは、短い毛のある体・頭・耳・手足、クリーム色のパッチ、目・鼻・口、赤い蝶ネクタイを24個のobjectで構成するサンプルです。約15万splatを生成します。[JSONサンプル](html/samples/teddy-bear.json)を保存し、ジェネレーターの「JSON を開く」から読み込むこともできます。見た目を再現するため、サンプリング・配色・effect・照明はDSL内で指定しています。
+
 [DSLの書き方](html/dsl.html)（配信時は `/dsl.html`）に構文・関数・設定項目の一覧があります。SDF は負が内部、0 が表面、正が外部です。
 
 ```text
@@ -104,6 +106,31 @@ scene {
 - `scene { seed = 123; ... }` で共通シード、object内の `seed = 456;` で個別シードを指定できます。個別シードを省略すると共通シードとobject名から決定するため、objectの追加や並べ替えで既存の乱数配置が変わりません。
 - 数式は四則演算・比較・条件式・数学関数・SDF呼び出しを使えます。ベクトルは配列で表し、成分ごとの演算はスカラー式で記述します。汎用JavaScript、ループ、再帰、プロパティ参照は使えません。未知の設定や範囲外の値は行・列付きで表示します。
 - 生成はWorker内で行い、object単位の進捗と境界到達を表示します。上限はscene全体で50万splat・30秒です。失敗・中止時は前回の結果を保持します。
+
+`define 名前 { ... }` で splat や effect などの設定を共通化できます。トップレベルに定義し、`splat = 名前;` で参照、`splat 名前 { ... }` で参照した設定を項目ごとに上書きします。
+
+```text
+define coat { color = "#e4bf91"; secondaryRatio = 0; }
+define shortFur { type = fur; density = 1000; length = 0.02; width = 0.004; }
+define longFur shortFur { length = 0.05; }
+
+sdf ball(x, y, z) { return sphere(x, y, z, 0.6); }
+scene {
+  object body {
+    shape = ball;
+    splat = coat;
+    effect = shortFur;
+  }
+  object head {
+    shape = ball;
+    transform { position = [0, 0.9, 0]; scale = 0.7; }
+    splat coat { color = "#edcfaa"; }
+    effect = longFur;
+  }
+}
+```
+
+`define 派生名 元の名前 { ... }` で継承でき、入れ子の設定も項目ごとに上書きします。`sampling`、`lighting`、`transform` にも同じ参照構文を使えます。複数ブロックをまとめた定義は `defaults = 名前;` または `defaults 名前 { ... }` で使えます。定義順は自由で、値の式にはトップレベルの `let` 定数を使えます。define名は定数・SDFとは別の名前空間です。重複名・未定義参照・循環参照はエラーになります。設定名・値は参照先のブロックに合わせて検証します。既存のDSLとJSONはそのまま利用でき、versionは1のままです。
 
 探索範囲は各軸とも `[-範囲, +範囲]` です。格子セルの辺で符号が変わる位置を補間し、その平均を SDF のゼロ面へ近づけます。差分で求めた法線に沿ってガウスの短軸を向けます。「面内の広がり」と「厚みの比率」は、それぞれセル幅に対する接平面内と法線方向の標準偏差です。サンプル間隔より細い形状や、符号変化を拾えない面は生成されないことがあります。
 

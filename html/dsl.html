@@ -82,6 +82,35 @@ scene {
     <tr><td><code>torus(x,y,z,major,minor)</code></td><td>XZ平面のリング。中心円半径と管の半径。</td></tr>
     <tr><td><code>union(a,b,...), intersection(a,b,...), subtract(a,b), smoothUnion(a,b,k)</code></td><td>SDFの合成。smoothUnionのkは融合幅。k ≤ 0は通常のunion。</td></tr>
   </table>
+  <h2>defineで設定を共通化</h2>
+  <p>トップレベルの <code>define 名前 { ... }</code> で設定ブロックを定義します。<code>splat = 名前;</code> で参照し、<code>splat 名前 { ... }</code> で個別の項目を上書きできます。effect、sampling、lighting、transformも同じ書き方です。</p>
+  <pre><code>define coat { color = "#e4bf91"; secondaryRatio = 0; }
+define shortFur { type = fur; density = 1000; length = 0.02; width = 0.004; }
+define longFur shortFur { length = 0.05; }
+
+sdf ball(x, y, z) { return sphere(x, y, z, 0.6); }
+scene {
+  object body {
+    shape = ball;
+    splat = coat;
+    effect = shortFur;
+  }
+  object head {
+    shape = ball;
+    transform { position = [0, 0.9, 0]; scale = 0.7; }
+    splat coat { color = "#edcfaa"; }
+    effect = longFur;
+  }
+}</code></pre>
+  <p><code>define 派生名 元の名前 { ... }</code> で定義を継承でき、入れ子のブロックも項目ごとに上書きします。<code>define 別名 = 名前;</code> で別名も付けられます。複数の設定をまとめ、sceneのdefaultsに適用することもできます。</p>
+  <pre><code>define bearStyle {
+  splat = coat;
+  effect = shortFur;
+}
+// scene内:
+// defaults = bearStyle;
+// または defaults bearStyle { splat { size = 0.8; } }</code></pre>
+  <p>優先順位は、画面のデフォルト → scene.defaults（参照先 → 上書き）→ object（参照先 → 上書き）です。defineの記述順は自由です。値の式にはトップレベルのlet定数を使えます。define名は定数・SDFとは別の名前空間です。同名のdefine、未定義参照、循環参照は行・列付きのエラーになります。設定名・値は使うブロックに合わせて検証します。defineはversion 1で利用できます。</p>
   <h2>設定の一覧</h2>
   <p><code>defaults</code> と各object内で <code>sampling</code>、<code>splat</code>、<code>effect</code>、<code>lighting</code> を指定できます。未指定の項目を1項目ずつ継承します。scene直下のlightingよりdefaults内のlightingを優先します。typeのnone/fur/fluffyは引用符なしでも指定できます。</p>
   <table>
