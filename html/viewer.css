@@ -89,23 +89,24 @@ canvas:active { cursor: grabbing; }
 .file-viewer .toolbar { top: 0; pointer-events: auto; }
 .file-viewer .actions { display: flex; gap: 8px; flex-wrap: wrap; pointer-events: auto; }
 .file-viewer .actions { align-items: center; }
-.lod-controls { position: relative; font-size: 13px; }
-.lod-controls summary { padding: 8px 10px; border-radius: 7px; cursor: pointer; }
-.lod-controls[open] summary { background: #ffffff16; }
+.app-header #lod-controls[aria-expanded="true"] { background: #ffffff16; border-color: #9ea6be; }
 .lod-panel {
-  position: absolute; top: calc(100% + 8px); right: 0; z-index: 5;
-  width: min(290px, calc(100vw - 64px)); padding: 14px;
+  /* Keep interactive controls outside the header's flex and backdrop-filter layers. */
+  position: absolute; top: var(--stereo-toolbar-height, 150px); right: 20px; z-index: 5;
+  width: min(320px, calc(100% - 40px)); padding: 16px;
   display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 10px;
-  background: #1a1b20; box-shadow: 0 4px 24px #0006;
-  max-height: 65dvh; overflow-y: auto;
+  background: #1a1b20; box-shadow: 0 4px 24px #0006; pointer-events: auto;
+  max-height: calc(100dvh - var(--stereo-toolbar-height, 150px) - 20px); overflow-y: auto;
 }
-.lod-panel select { max-width: none; width: 100%; }
-.app-header .lod-panel input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: #c2ccef; }
+.lod-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lod-panel button, .lod-panel select { min-height: 44px; }
+.lod-panel select { max-width: none; width: 100%; background: #25262c; }
+.lod-panel input[type="checkbox"] { width: 24px; height: 24px; margin: 0; accent-color: #c2ccef; }
+.lod-panel .checkbox { min-height: 44px; }
+.lod-panel input[type="range"] { height: 44px; accent-color: #c2ccef; }
+.headers-hidden .lod-panel, .file-viewer.xr .lod-panel { display: none; }
 .lod-scale-label { display: flex; justify-content: space-between; gap: 8px; }
 .lod-scale-label output { font-variant-numeric: tabular-nums; }
-@media (max-width: 680px) {
-  .lod-panel { left: 0; right: auto; }
-}
 .file-viewer .stereo-mode { display: flex; align-items: center; gap: 6px; }
 .file-viewer .stereo-mode select { max-width: none; }
 #stereo-strength-control { grid-template-columns: auto auto; gap: 2px 8px; width: 110px; }

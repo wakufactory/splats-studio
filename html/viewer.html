@@ -37,29 +37,7 @@
         </div>
       </div>
       <div class="actions">
-        <details id="lod-controls" class="lod-controls">
-          <summary>間引き設定</summary>
-          <div class="lod-panel">
-            <label class="checkbox"><input id="lod-enabled" type="checkbox" checked disabled>間引き表示（LoD）</label>
-            <label>描画数の基準
-              <select id="lod-count" disabled>
-                <option value="">自動（端末に合わせる）</option>
-                <option value="10000">1万</option>
-                <option value="50000">5万</option>
-                <option value="100000">10万</option>
-                <option value="250000">25万</option>
-                <option value="500000">50万</option>
-                <option value="1000000">100万</option>
-                <option value="2500000">250万</option>
-                <option value="5000000">500万</option>
-              </select>
-            </label>
-            <label class="lod-scale-label" for="lod-scale">描画数の倍率 <output id="lod-scale-value" for="lod-scale">1.00×</output></label>
-            <input id="lod-scale" type="range" min="0.05" max="2" step="0.05" value="1" aria-label="描画数の倍率" disabled>
-            <p class="hint">描画数の目標は「基準 × 倍率」です。小さくすると軽量になります。点群表示には適用しません。</p>
-            <p class="hint">LoD データの作成で読み込み時間とメモリ使用量が増えます。</p>
-          </div>
-        </details>
+        <button id="lod-controls" type="button" aria-expanded="false" aria-controls="lod-panel">間引き設定</button>
         <label class="stereo-mode">表示
           <select id="stereo-mode" disabled>
             <option value="mono">単眼</option>
@@ -75,6 +53,27 @@
         <button id="vr" type="button" disabled title="WebXR対応状況を確認中">VR</button>
       </div>
     </header>
+    <section id="lod-panel" class="lod-panel" aria-label="間引き設定" hidden>
+      <div class="lod-panel-heading"><h2>間引き設定</h2><button id="lod-close" type="button" aria-label="間引き設定を閉じる">閉じる</button></div>
+      <label class="checkbox"><input id="lod-enabled" type="checkbox" checked disabled>間引き表示（LoD）</label>
+      <label>描画数の基準
+        <select id="lod-count" disabled>
+          <option value="">自動（端末に合わせる）</option>
+          <option value="10000">1万</option>
+          <option value="50000">5万</option>
+          <option value="100000">10万</option>
+          <option value="250000">25万</option>
+          <option value="500000">50万</option>
+          <option value="1000000">100万</option>
+          <option value="2500000">250万</option>
+          <option value="5000000">500万</option>
+        </select>
+      </label>
+      <label class="lod-scale-label" for="lod-scale">描画数の倍率 <output id="lod-scale-value" for="lod-scale">1.00×</output></label>
+      <input id="lod-scale" type="range" min="0.05" max="2" step="0.05" value="1" aria-label="描画数の倍率" disabled>
+      <p class="hint">描画数の目標は「基準 × 倍率」です。小さくすると軽量になります。点群表示には適用しません。</p>
+      <p class="hint">LoD データの作成で読み込み時間とメモリ使用量が増えます。</p>
+    </section>
     <section id="empty">
       <h2>Splat ファイルを開く</h2>
       <p>ファイルをここにドロップするか、左上から選択</p>

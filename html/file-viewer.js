@@ -21,6 +21,24 @@ const status = document.querySelector("#status");
 const filename = document.querySelector("#filename");
 const splatCount = document.querySelector("#splat-count");
 const countFormat = new Intl.NumberFormat("ja-JP");
+const lodButton = document.querySelector("#lod-controls");
+const lodPanel = document.querySelector("#lod-panel");
+function setLodPanelOpen(open) {
+  lodPanel.hidden = !open;
+  lodButton.setAttribute("aria-expanded", String(open));
+}
+lodButton.addEventListener("click", () => setLodPanelOpen(lodPanel.hidden));
+document.querySelector("#lod-close").addEventListener("click", () => {
+  setLodPanelOpen(false);
+  lodButton.focus({ preventScroll: true });
+});
+lodPanel.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    setLodPanelOpen(false);
+    lodButton.focus({ preventScroll: true });
+    event.stopPropagation();
+  }
+});
 
 function showStatus(message, error = false) {
   status.textContent = message;
