@@ -121,7 +121,59 @@ scene {
     <tr><td>lighting</td><td>ambient: 0〜1、main { intensity: 0〜2、azimuth: −180〜180、elevation: −90〜90 }、fill { intensity: 0〜2 }</td></tr>
     <tr><td>transform（objectのみ）</td><td>position: [x,y,z]、rotation: [x,y,z]（度、Euler XYZ）、scale: 正の数値（一様拡大）</td></tr>
   </table>
-  <p>effectの既定値はtype=none、density=700、length=0.16、width=0.012、disorder=0.35、variation=0.4、clump=0.3、clumpSize=0.25、base=trueです。モコモコはtype=fluffy、density=120、width=0.045程度から試せます。</p>
+  <h2 id="surface-effects">表面エフェクトの詳細仕様</h2>
+  <p><code>effect { ... }</code> はobjectまたはscene.defaults内に記述します。項目ごとに共通設定を継承し、共通設定もなければ下表の既定値を使います。<code>effect = 定義名;</code> や <code>effect 定義名 { ... }</code> でも指定できます。値の範囲は両端を含み、数値は小数も指定できます。</p>
+  <table>
+    <tr><th>パラメータ</th><th>既定値</th><th>範囲・指定値</th><th>意味</th></tr>
+    <tr><td><code>type</code></td><td><code>none</code></td><td><code>none / fur / fluffy</code></td><td>下地のみ / 毛・起毛 / モコモコ。引用符なし、または文字列で指定。</td></tr>
+    <tr><td><code>density</code></td><td>700</td><td>0〜4000</td><td>ローカル座標の表面積1あたりのおおよその毛・房の数。splat数ではありません。</td></tr>
+    <tr><td><code>length</code></td><td>0.16</td><td>0.01〜0.6</td><td>毛・房の長さの基準値。SDFと同じローカル単位。</td></tr>
+    <tr><td><code>width</code></td><td>0.012</td><td>0.001〜0.15</td><td>太さの基準値（ガウスの標準偏差）。見える直径ではありません。</td></tr>
+    <tr><td><code>disorder</code></td><td>0.35</td><td>0〜1</td><td>毛・房ごとのランダムな傾きの強さ。</td></tr>
+    <tr><td><code>variation</code></td><td>0.4</td><td>0〜1</td><td>長さ・太さのランダムな個体差の強さ。</td></tr>
+    <tr><td><code>clump</code></td><td>0.3</td><td>0〜1</td><td>近くの毛・房に共通の傾きを与える強さ。</td></tr>
+    <tr><td><code>clumpSize</code></td><td>0.25</td><td>0.03〜1</td><td>共通の傾きを作る空間パターンの大きさ。SDFと同じローカル単位。</td></tr>
+    <tr><td><code>base</code></td><td><code>true</code></td><td><code>true / false</code></td><td>下地の表面を残すか。noneの場合はこの値によらず下地を生成。</td></tr>
+  </table>
+  <h3>記述例</h3>
+  <pre><code>version 1;
+sdf ball(x, y, z) { return sphere(x, y, z, 1); }
+scene {
+  seed = 123;
+  defaults {
+    effect { type = fur; density = 700; length = 0.16; width = 0.012; }
+  }
+  object coat {
+    shape = ball;
+    seed = 456;
+    effect {
+      disorder = 0.35;
+      variation = 0.4;
+      clump = 0.3;
+      clumpSize = 0.25;
+      base = true;
+    }
+  }
+}</code></pre>
+  <p>次の例はobject内に記述します。未指定の項目は共通設定、共通設定もなければ上表の既定値を使います。</p>
+  <pre><code>// 短毛
+effect { type = fur; density = 1000; length = 0.10; width = 0.006; disorder = 0.15; clump = 0.15; }
+// 長めの毛
+effect { type = fur; density = 700; length = 0.25; width = 0.012; disorder = 0.35; clump = 0.5; }
+// ボア・モコモコ
+effect { type = fluffy; density = 120; length = 0.16; width = 0.045; disorder = 0.35; clump = 0.3; }</code></pre>
+  <h3>密度・下地・生成数</h3>
+  <p>セル幅を <code>step = 2 × sampling.extent / sampling.resolution</code>、単位法線を <code>[nx, ny, nz]</code> とすると、表面セルごとの毛・房の期待数は <code>density × step² / (abs(nx) + abs(ny) + abs(nz))</code> です。整数部分を生成し、小数部分を確率としてもう1本追加します。根元は接平面内でランダムにずらしてSDF表面へ再投影します。分割数とは独立した密度を目指しますが、高曲率や粗い分割では均一にならず、本数も概算です。</p>
+  <p>下地のsplat数をB、生成された毛・房の数をHとすると、<code>fur</code> は <code>(base ? B : 0) + 3 × H</code>、<code>fluffy</code> は <code>(base ? B : 0) + H</code>、<code>none</code> は常にBです。表面積Aから <code>H ≈ density × A</code> と見積もれます。scene全体で下地を含めて50万splatが上限です。</p>
+  <p><code>density = 0;</code> は毛・房を生成しません。fur/fluffyで <code>base = false;</code> を併用し、出力が空になるとエラーになります。密度が低く、確率的に毛・房が1つも生えない場合も同様です。noneではdensityやbaseの値によらず下地だけを生成しますが、各パラメータの範囲検証は行います。</p>
+  <h3>長さ・太さ・方向の作用</h3>
+  <p>個々の毛・房の長さLは <code>length × (1 + rL × variation × 0.8)</code>、太さWは <code>width × (1 + rW × variation × 0.6)</code> で決めます。rLとrWは独立した−1〜1の一様乱数です。variation=0で個体差をなくし、variation=1では長さが基準の0.2〜1.8倍、太さが0.4〜1.6倍になります。</p>
+  <p>furは根元から先端に向けて3個のsplatを並べます。各区間の中心を表す <code>t = 1/6, 1/2, 5/6</code> に対し、横方向の標準偏差は <code>W × (1 − 0.65 × t)</code>、長軸方向は <code>L / 3 × 0.55</code> です。fluffyは1房を1個の楕円体とし、横方向の標準偏差はW、長軸方向は <code>L × 0.5</code> です。lengthは配置の基準であり、Gaussianのぼけを含む見える全長とは一致しません。</p>
+  <p>disorderは毛・房ごとに独立したランダムな傾き、clumpは位置とシードから求めた連続的な正弦波パターンを接平面へ投影した傾きです。clumpSizeを大きくすると共通の傾きが変化する空間的な間隔が広がります。毛束の直径や毛同士の結合距離を直接指定する値ではなく、物理シミュレーションは行いません。disorderとclumpを両方0にすると法線方向へ伸びます。variation=0だけでは方向の乱れは消えません。</p>
+  <h3>座標・乱数・色・保存</h3>
+  <p>length、width、clumpSizeとdensityはtransform前のローカル座標で適用します。その後、下地と毛・房をまとめて一様拡大・回転・移動します。scaleをs倍にしても本数は変わらず、長さ・太さ・毛束パターンはs倍、配置後の面積あたりの密度は1/s²倍になります。splat.sizeとsplat.thicknessは下地の大きさを調整し、毛・房のlength/widthを置き換えるものではありません。</p>
+  <p>乱数は <code>seed = 整数;</code>（0〜1000000）で指定します。seedはeffectの項目ではなくsceneまたはobject直下に置きます。objectで省略すると共通シードとobject名から決定します。同じDSL・画面のデフォルト設定・シードなら配置を再現でき、object名・形状・分割数を変えると配置も変わります。</p>
+  <p>色は下地と毛・房を含む各splatで、splat.colorまたはsplat.secondaryColorをsecondaryRatioの確率で選びます。furの3区間も個別に選色します。毛・房には根元側を暗くする明暗を付け、配置後の表面法線で照明を焼き付けます。設定は「スプラットを生成」で反映され、PLY / SOGにも大きさ・向き・色を保存します。Gaussianの端がぼけるため、輪郭や毛先は柔らかく見えます。</p>
   <h2>生成と配置</h2>
   <p>各objectは独立に生成して結合します。重なった内側の表面も残ります。形状として融合したい場合は、SDF内でunionなどを使い、1つのobjectとして生成してください。融合後のsplat・effect設定はそのobjectの1組を使います。</p>
   <p>samplingの探索範囲はローカル座標の各軸[-extent,+extent]です。毛の長さ・太さと密度もローカル座標で計算し、表面と毛をまとめて拡大・回転・移動します。size/thicknessはセル幅に対する比率です。照明は配置後の法線を使って色に焼き付けます。</p>
