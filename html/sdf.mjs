@@ -46,7 +46,7 @@ export function compileSdf(source) {
 export function generateSurface(sdf, { resolution, extent, size, thickness, color,
   secondaryColor = "#de7194", secondaryRatio = 0,
   ambientIntensity = 0.37, mainIntensity = 0.61, mainAzimuth = 46.15, mainElevation = 58.2,
-  fillIntensity = 0.23, ...effectOptions }) {
+  fillIntensity = 0.23, ...effectOptions }, { deferLighting = false, maxSplats = 500_000 } = {}) {
   const effect = validateEffect(effectOptions);
   if (!Number.isInteger(resolution) || resolution < 16 || resolution > 144 ||
       !Number.isFinite(extent) || extent < 0.1 || extent > 20 ||
@@ -143,7 +143,7 @@ export function generateSurface(sdf, { resolution, extent, size, thickness, colo
         }
         const key = Math.max(0, lx * nx + ly * ny + lz * nz);
         const fill = Math.max(0, -0.8 * nx + 0.28 * ny - 0.52 * nz);
-        const light = Math.min(1, ambientIntensity + mainIntensity * key + fillIntensity * fill);
+        const light = deferLighting ? 1 : Math.min(1, ambientIntensity + mainIntensity * key + fillIntensity * fill);
         if (count >= 500_000) throw new Error("スプラットが50万個を超えました。分割数を下げてください。");
         if (count * STRIDE === data.length) {
           const larger = new Float32Array(data.length * 2);
@@ -158,7 +158,7 @@ export function generateSurface(sdf, { resolution, extent, size, thickness, colo
   }
   if (!count) throw new Error("表面が見つかりません。探索範囲、分割数、SDF の符号を確認してください。");
 
-  const surface = addEffect(data.subarray(0, count * STRIDE), sample, step, effect);
+  const surface = addEffect(data.subarray(0, count * STRIDE), sample, step, { ...effect, maxSplats });
   // Choose colors after effects so every final splat has an independent choice.
   // Keep this random stream separate from hair placement and shape.
   let colorState = effect.seed >>> 0;
@@ -202,7 +202,7 @@ function addEffect(surface, sample, step, options) {
   let count = 0, hairCount = 0;
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   function push(record) {
-    if (count >= 500000) throw new Error("スプラットが50万個を超えました。密度または分割数を下げてください。");
+    if (count >= options.maxSplats) throw new Error("scene全体でスプラットが50万個を超えます。密度または分割数を下げてください。");
     if ((count + 1) * STRIDE > data.length) {
       const larger = new Float32Array(data.length * 2);
       larger.set(data);

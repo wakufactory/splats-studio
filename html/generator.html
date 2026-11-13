@@ -16,7 +16,7 @@
     }
   </script>
 </head>
-<body>
+<body class="scene-generator">
   <header class="toolbar app-header">
     <div class="header-title">
       <p class="eyebrow">SURFACE GENERATOR / SPARK.JS</p>
@@ -40,20 +40,21 @@
   <main>
     <form id="generator" aria-label="生成設定">
       <div class="form-heading">
-        <h2>SDF を編集</h2>
-        <select id="preset" aria-label="SDF プリセット">
+        <h2>Scene DSL を編集</h2>
+        <select id="preset" aria-label="Scene DSL プリセット">
           <option value="" hidden>カスタム</option>
         </select>
       </div>
-      <p class="hint">負が内部、0 が表面、正が外部。Y 軸が上です。</p>
-      <textarea id="source" aria-label="SDF の JavaScript コード" spellcheck="false" autocapitalize="off" autocomplete="off" required></textarea>
+      <p class="hint">複数のSDFとobjectを定義できます。負が内部、0 が表面。Y 軸が上です。</p>
+      <textarea id="source" aria-label="Scene DSL コード" spellcheck="false" autocapitalize="off" autocomplete="off" required></textarea>
+      <p class="hint">下の設定は全objectのデフォルト値です。DSLのdefaults・object内で上書きできます。エフェクトはDSL内で指定します。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
       <fieldset>
-        <legend>サンプリング</legend>
+        <legend>サンプリング（デフォルト）</legend>
         <label>探索範囲 ±<input id="extent" type="number" min="0.1" max="20" step="any" value="1.5" required></label>
         <label>各軸の分割数<input id="resolution" type="number" min="16" max="144" value="64" required></label>
       </fieldset>
       <fieldset>
-        <legend>スプラット</legend>
+        <legend>スプラット（デフォルト）</legend>
         <label>面内の広がり<input id="size" type="number" min="0.3" max="1.5" step="any" value="0.72" required></label>
         <label>厚みの比率<input id="thickness" type="number" min="0.05" max="0.8" step="any" value="0.15" required></label>
         <label>ベース色<input id="color" type="color" value="#71debb"></label>
@@ -63,30 +64,13 @@
         <p class="hint wide">各 splat を指定の確率で補助色に置き換えます。生成時に反映します。</p>
       </fieldset>
       <fieldset>
-        <legend>照明</legend>
+        <legend>照明（デフォルト）</legend>
         <label>環境光の強さ<output for="ambientIntensity"></output><input id="ambientIntensity" type="range" min="0" max="1" step="0.01" value="0.37"></label>
         <label>メインライトの強さ<output for="mainIntensity"></output><input id="mainIntensity" type="range" min="0" max="2" step="0.01" value="0.61"></label>
         <label>方位角（°）<output for="mainAzimuth"></output><input id="mainAzimuth" type="range" min="-180" max="180" step="0.01" value="46.15"></label>
         <label>仰角（°）<output for="mainElevation"></output><input id="mainElevation" type="range" min="-90" max="90" step="0.1" value="58.2"></label>
         <label>補助光の強さ<output for="fillIntensity"></output><input id="fillIntensity" type="range" min="0" max="2" step="0.01" value="0.23"></label>
         <p class="hint wide">光源のある方向を指定します。方位角 0° は +Z、90° は +X、仰角 90° は真上（+Y）。補助光は固定方向です。「スプラットを生成」で色に反映します。</p>
-      </fieldset>
-      <fieldset id="effect-settings">
-        <legend>表面エフェクト</legend>
-        <label class="wide">種類<select id="effect">
-          <option value="none">なし</option><option value="fur">毛・起毛</option><option value="fluffy">モコモコ</option>
-        </select></label>
-        <div id="effect-controls" class="wide" hidden>
-          <label>密度（本 / 面積 1）<input id="density" type="number" min="0" max="4000" step="10" value="700" required></label>
-          <label>長さ <output for="hairLength"></output><input id="hairLength" aria-label="長さ" type="range" min="0.01" max="0.6" step="0.005" value="0.16"></label>
-          <label>太さ <output for="hairWidth"></output><input id="hairWidth" aria-label="太さ" type="range" min="0.001" max="0.15" step="0.001" value="0.012"></label>
-          <label>方向の乱れ <output for="disorder"></output><input id="disorder" aria-label="方向の乱れ" type="range" min="0" max="1" step="0.01" value="0.35"></label>
-          <label>長さ・太さのばらつき <output for="variation"></output><input id="variation" aria-label="長さ・太さのばらつき" type="range" min="0" max="1" step="0.01" value="0.4"></label>
-          <label>毛束感 <output for="clump"></output><input id="clump" aria-label="毛束感" type="range" min="0" max="1" step="0.01" value="0.3"></label>
-          <label>毛束の大きさ <output for="clumpSize"></output><input id="clumpSize" aria-label="毛束の大きさ" type="range" min="0.03" max="1" step="0.01" value="0.25"></label>
-          <label class="wide checkbox"><input id="base" type="checkbox" checked>下地の表面を表示</label>
-        </div>
-        <p class="hint wide">設定後に「スプラットを生成」で反映。長さ・太さは SDF と同じ単位です。モコモコは太さを増やすと丸い房になります。</p>
       </fieldset>
       <div class="form-actions">
         <button class="primary" id="generate" type="submit" disabled>スプラットを生成</button>

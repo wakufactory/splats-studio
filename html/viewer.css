@@ -143,16 +143,19 @@ canvas:active { cursor: grabbing; }
 .file-viewer.xr #viewport { top: 0; }
 .file-viewer.xr footer { background: none; }
 
-#effect-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 #render-notice {
   position: absolute; top: 60px; left: 16px; right: 16px; z-index: 2;
   margin: 0; padding: 14px 16px; border: 1px solid #e5b96b; border-radius: 8px;
   background: #302719f2; color: #ffe2ae; font-size: 14px;
 }
 .wide { grid-column: 1 / -1; }
-#effect { max-width: none; width: 100%; }
-#effect-controls label { position: relative; }
-#effect-controls output { color: var(--accent); font-variant-numeric: tabular-nums; }
 input[type="range"] { padding: 0; accent-color: var(--accent); }
 .checkbox { display: flex; align-items: center; gap: 7px; }
 .checkbox input { width: auto; }
+
+.scene-generator main { grid-template-columns: minmax(340px, 480px) 1fr; }
+.scene-generator textarea { min-height: 360px; flex-basis: 360px; white-space: pre; overflow-wrap: normal; }
+.scene-generator .hint a { color: var(--accent); }
+@media (max-width: 680px) {
+  .scene-generator main { display: flex; }
+}

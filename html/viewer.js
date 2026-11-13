@@ -1,4 +1,5 @@
-import { encodePly, presets, STRIDE } from "./sdf.mjs";
+import { scenePresets as presets } from "./scene-presets.mjs";
+import { encodePly, STRIDE } from "./sdf.mjs";
 import { disposeSplatMesh } from "./splat-resources.mjs";
 import { RenderWatchdog } from "./render-watchdog.mjs";
 
@@ -34,30 +35,21 @@ source.addEventListener("input", () => {
   preset.value = Object.keys(presets).find(id => presets[id].source === source.value) ?? "";
 });
 
-function updateEffectControls() {
-  byId("effect-controls").hidden = byId("effect").value === "none";
+function updateRangeOutputs() {
   for (const input of form.querySelectorAll('input[type="range"]')) {
     form.querySelector(`output[for="${input.id}"]`).value = input.value;
   }
 }
-const effectParameterIds = ["density", "hairLength", "hairWidth", "disorder", "variation", "clump", "clumpSize"];
-const initialEffect = Object.fromEntries(effectParameterIds.map(id => [id, byId(id).value]));
-const effectSettings = {
-  fur: { ...initialEffect }, fluffy: { ...initialEffect, density: "120", hairWidth: "0.045" },
-};
-let previousEffect = "none";
-byId("effect").addEventListener("change", () => {
-  if (previousEffect !== "none") {
-    effectSettings[previousEffect] = Object.fromEntries(effectParameterIds.map(id => [id, byId(id).value]));
-  }
-  previousEffect = byId("effect").value;
-  if (previousEffect !== "none") {
-    for (const [id, value] of Object.entries(effectSettings[previousEffect])) byId(id).value = value;
-  }
-  updateEffectControls();
+form.addEventListener("input", updateRangeOutputs);
+updateRangeOutputs();
+
+// Keep indentation useful in the plain text DSL editor.
+source.addEventListener("keydown", event => {
+  if (event.key !== "Tab" || event.shiftKey) return;
+  event.preventDefault();
+  source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
+  source.dispatchEvent(new Event("input", { bubbles: true }));
 });
-form.addEventListener("input", updateEffectControls);
-updateEffectControls();
 
 function sampleInWorker(payload, signal) {
   return new Promise((resolve, reject) => {
@@ -72,8 +64,13 @@ function sampleInWorker(payload, signal) {
       else resolve(result);
     }
     signal.addEventListener("abort", abort, { once: true });
-    worker.onmessage = ({ data: { error, result } }) =>
+    worker.onmessage = ({ data: { error, result, progress } }) => {
+      if (progress) {
+        showStatus(`object ${progress.name} を生成中… (${progress.index + 1}/${progress.total})`);
+        return;
+      }
       finish(result ? null : new Error(error || "生成に失敗しました。"), result);
+    };
     worker.onerror = () => finish(new Error("生成処理を起動できませんでした。"));
     worker.postMessage(payload);
   });
@@ -265,16 +262,13 @@ async function start() {
 
   async function regenerate() {
     if (job || sogBusy) return;
-    const options = Object.fromEntries(["resolution", "extent", "size", "thickness", "density", "hairLength", "hairWidth",
-      "disorder", "variation", "clump", "clumpSize", "seed",
+    const options = Object.fromEntries(["resolution", "extent", "size", "thickness", "seed",
       "ambientIntensity", "mainIntensity", "mainAzimuth", "mainElevation", "fillIntensity"].map(
       id => [id, byId(id).valueAsNumber],
     ));
     options.color = byId("color").value;
     options.secondaryColor = byId("secondaryColor").value;
     options.secondaryRatio = byId("secondaryRatio").valueAsNumber / 100;
-    options.effect = byId("effect").value;
-    options.base = byId("base").checked;
     const name = preset.value ? `sdf-${preset.value}` : "sdf-surface";
     job = new AbortController();
     updateSogButton();
@@ -291,14 +285,14 @@ async function start() {
       updateRenderLoop();
       outputName = name;
       downloadName.placeholder = outputName;
-      const stats = `${countFormat.format(next.count)} スプラット${options.effect === "none" ? "" : ` / ${countFormat.format(next.hairCount)} 本・房`} · 生成 ${Math.round(next.elapsed)} ms`;
-      showStatus(next.clipped ? `${stats}。形状が境界に達しています。探索範囲を広げてください。` : stats,
+      const stats = `${next.objects.length} object · ${countFormat.format(next.count)} スプラット${next.hairCount ? ` / ${countFormat.format(next.hairCount)} 本・房` : ""} · 生成 ${Math.round(next.elapsed)} ms`;
+      showStatus(next.clipped ? `${stats}。${next.objects.filter(object => object.clipped).map(object => object.name).join(", ")} が境界に達しています。探索範囲を広げてください。` : stats,
         next.clipped ? "warning" : "");
     } catch (error) {
       const previous = result ? (renderWatchdog.stopped
         ? " 前回の結果は保持しています。描画は停止中です。" : " 前回の結果を表示しています。") : "";
       if (error.name === "AbortError") showStatus(`生成を中止しました。${previous}`);
-      else showStatus(`生成できませんでした：${error.message}。${previous}`, "error");
+      else showStatus(`生成できませんでした：${error.message.replace(/[。.]$/, "")}。${previous}`, "error");
     } finally {
       job = undefined;
       generate.disabled = false;

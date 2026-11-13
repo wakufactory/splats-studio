@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scene DSL — SDF Splat Studio</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.8 system-ui, sans-serif; background: #11151b; color: #edf1f6; }
+    body { max-width: 900px; margin: 32px auto; padding: 0 20px 60px; }
+    a { color: #a6dfc5; } h1 { font-size: 26px; } h2 { font-size: 20px; margin-top: 32px; }
+    pre { overflow: auto; padding: 18px; background: #202a36; border-radius: 8px; line-height: 1.6; }
+    code { font-size: 13px; } table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #384554; }
+  </style>
+</head>
+<body>
+  <h1>Scene DSL</h1>
+  <p><a href="./generator.html">ジェネレーター</a>の「複数SDFと毛・房」プリセットを選ぶと、複数objectの例を編集できます。</p>
+  <p>SDFは負が内部、0が表面、正が外部です。Y軸が上です。設定値の優先順位は、画面のデフォルト → sceneの共通設定 → objectの個別設定です。エフェクトの初期値はなしです。</p>
+  <pre><code>version 1;
+
+let radius = 0.6;
+
+sdf ball(x, y, z) {
+  return length([x, y, z]) - radius;
+}
+
+sdf ring(x, y, z) {
+  return torus(x, y, z, 0.7, 0.2);
+}
+
+scene {
+  // 省略すれば画面の乱数シードを使います。
+  seed = 123;
+
+  defaults {
+    sampling { extent = 1.5; resolution = 64; }
+    splat { size = 0.72; thickness = 0.15; }
+  }
+
+  lighting {
+    ambient = 0.37;
+    main { intensity = 0.61; azimuth = 46; elevation = 58; }
+    fill { intensity = 0.23; }
+  }
+
+  object fuzzyBall {
+    shape = ball;
+    transform { position = [-0.9, 0, 0]; }
+    splat { color = "#e9bc82"; }
+    effect {
+      type = fur;
+      density = 700;
+      length = 0.16;
+      width = 0.012;
+      disorder = 0.35;
+      variation = 0.4;
+      clump = 0.3;
+      clumpSize = 0.25;
+      base = true;
+    }
+  }
+
+  object smoothRing {
+    shape = ring;
+    transform { position = [0.9, 0, 0]; rotation = [30, 0, 0]; scale = 0.8; }
+    splat { color = "#71bbde"; secondaryColor = "#ffffff"; secondaryRatio = 0.2; }
+  }
+}</code></pre>
+  <h2>定義と数式</h2>
+  <p><code>let 名前 = 式;</code> で定数を定義します。定数からは先に定義した定数を参照できます。SDF内では引数とローカルのlet変数を使い、最後にreturnで距離を返します。SDF同士は定義順に関係なく呼べます。再帰、ループ、JavaScriptのプロパティ参照や外部APIは使えません。旧形式の <code>function sdf</code> は使えません。</p>
+  <p>数値、文字列（ダブルクォート）、配列、true/false、pi、四則演算、剰余%、べき乗**、比較、&amp;&amp;、||、!、条件式 <code>条件 ? 値 : 値</code> が使えます。ベクトルは配列で表し、成分ごとの計算はスカラーの式で記述します。文末にセミコロンが必要です。コメントは <code>//</code> と <code>/* ... */</code> です。</p>
+  <table>
+    <tr><th>関数</th><th>内容</th></tr>
+    <tr><td><code>abs, sqrt, sin, cos, tan, floor, ceil, round, sign, exp, log</code></td><td>引数1個。三角関数はラジアン。</td></tr>
+    <tr><td><code>min, max</code></td><td>引数2個以上。</td></tr>
+    <tr><td><code>pow(a,b), atan2(y,x)</code></td><td>べき乗、角度。</td></tr>
+    <tr><td><code>length([x,y,z])</code></td><td>配列の長さではなくベクトルの大きさ。</td></tr>
+    <tr><td><code>clamp(v,min,max), mix(a,b,t)</code></td><td>範囲制限、線形補間。</td></tr>
+    <tr><td><code>sphere(x,y,z,r)</code></td><td>原点中心の球。</td></tr>
+    <tr><td><code>box(x,y,z,hx,hy,hz)</code></td><td>原点中心。hx/hy/hzは各軸の半幅。</td></tr>
+    <tr><td><code>torus(x,y,z,major,minor)</code></td><td>XZ平面のリング。中心円半径と管の半径。</td></tr>
+    <tr><td><code>union(a,b,...), intersection(a,b,...), subtract(a,b), smoothUnion(a,b,k)</code></td><td>SDFの合成。smoothUnionのkは融合幅。k ≤ 0は通常のunion。</td></tr>
+  </table>
+  <h2>設定の一覧</h2>
+  <p><code>defaults</code> と各object内で <code>sampling</code>、<code>splat</code>、<code>effect</code>、<code>lighting</code> を指定できます。未指定の項目を1項目ずつ継承します。scene直下のlightingよりdefaults内のlightingを優先します。typeのnone/fur/fluffyは引用符なしでも指定できます。</p>
+  <table>
+    <tr><th>ブロック</th><th>項目（範囲）</th></tr>
+    <tr><td>sampling</td><td>extent: 0.1〜20、resolution: 16〜144の整数</td></tr>
+    <tr><td>splat</td><td>size: 0.3〜1.5、thickness: 0.05〜0.8、color/secondaryColor: "#rrggbb"、secondaryRatio: 0〜1（割合）</td></tr>
+    <tr><td>effect</td><td>type: none/fur/fluffy、density: 0〜4000、length: 0.01〜0.6、width: 0.001〜0.15、disorder/variation/clump: 0〜1、clumpSize: 0.03〜1、base: true/false</td></tr>
+    <tr><td>lighting</td><td>ambient: 0〜1、main { intensity: 0〜2、azimuth: −180〜180、elevation: −90〜90 }、fill { intensity: 0〜2 }</td></tr>
+    <tr><td>transform（objectのみ）</td><td>position: [x,y,z]、rotation: [x,y,z]（度、Euler XYZ）、scale: 正の数値（一様拡大）</td></tr>
+  </table>
+  <p>effectの既定値はtype=none、density=700、length=0.16、width=0.012、disorder=0.35、variation=0.4、clump=0.3、clumpSize=0.25、base=trueです。モコモコはtype=fluffy、density=120、width=0.045程度から試せます。</p>
+  <h2>生成と配置</h2>
+  <p>各objectは独立に生成して結合します。重なった内側の表面も残ります。形状として融合したい場合は、SDF内でunionなどを使い、1つのobjectとして生成してください。融合後のsplat・effect設定はそのobjectの1組を使います。</p>
+  <p>samplingの探索範囲はローカル座標の各軸[-extent,+extent]です。毛の長さ・太さと密度もローカル座標で計算し、表面と毛をまとめて拡大・回転・移動します。size/thicknessはセル幅に対する比率です。照明は配置後の法線を使って色に焼き付けます。</p>
+  <p>sceneとobjectの直下で <code>seed = 整数;</code>（0〜1000000）を指定できます。objectで省略した場合は、共通シードとobject名から決めます。objectを追加・並べ替えしても既存objectの配置は変わりません。object名、分割数や形状を変更すると配置も変わります。</p>
+  <p>scene全体で50万splat、生成時間は30秒が上限です。失敗・中止した場合は前回の結果を保持します。未知の設定名や範囲外の値は行・列付きで表示します。</p>
+</body>
+</html>
