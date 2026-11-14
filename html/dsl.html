@@ -122,7 +122,7 @@ scene {
     <tr><td>transform（objectのみ）</td><td>position: [x,y,z]、rotation: [x,y,z]（度、Euler XYZ）、scale: 正の数値（一様拡大）</td></tr>
   </table>
   <h2 id="surface-effects">表面エフェクトの詳細仕様</h2>
-  <p><code>effect { ... }</code> はobjectまたはscene.defaults内に記述します。項目ごとに共通設定を継承し、共通設定もなければ下表の既定値を使います。<code>effect = 定義名;</code> や <code>effect 定義名 { ... }</code> でも指定できます。値の範囲は両端を含み、数値は小数も指定できます。</p>
+  <p><code>effect { ... }</code> はobjectまたはscene.defaults内に記述します。未指定の項目は、左ペイン下部の「表面エフェクト（デフォルト）」→ scene.defaults → objectの順に項目ごとに継承します。下表はUIの初期値です。<code>effect = 定義名;</code> や <code>effect 定義名 { ... }</code> でも指定できます。値の範囲は両端を含み、数値は小数も指定できます。</p>
   <table>
     <tr><th>パラメータ</th><th>既定値</th><th>範囲・指定値</th><th>意味</th></tr>
     <tr><td><code>type</code></td><td><code>none</code></td><td><code>none / fur / fluffy</code></td><td>下地のみ / 毛・起毛 / モコモコ。引用符なし、または文字列で指定。</td></tr>
@@ -155,7 +155,7 @@ scene {
     }
   }
 }</code></pre>
-  <p>次の例はobject内に記述します。未指定の項目は共通設定、共通設定もなければ上表の既定値を使います。</p>
+  <p>次の例はobject内に記述します。未指定の項目はscene.defaults、そこでも未指定なら画面のデフォルト設定を使います。</p>
   <pre><code>// 短毛
 effect { type = fur; density = 1000; length = 0.10; width = 0.006; disorder = 0.15; clump = 0.15; }
 // 長めの毛

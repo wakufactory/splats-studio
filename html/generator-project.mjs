@@ -4,11 +4,17 @@ export const defaultSettings = Object.freeze({
   color: "#71debb", secondaryColor: "#de7194", secondaryRatio: 0, seed: 1,
   ambientIntensity: 0.37, mainIntensity: 0.61, mainAzimuth: 46.15,
   mainElevation: 58.2, fillIntensity: 0.23,
+  effect: "none", density: 700, hairLength: 0.16, hairWidth: 0.012,
+  disorder: 0.35, variation: 0.4, clump: 0.3, clumpSize: 0.25, base: true,
 });
+// Version 1 projects saved before the effect controls were restored omit these keys.
+const effectKeys = new Set(["effect", "density", "hairLength", "hairWidth", "disorder", "variation", "clump", "clumpSize", "base"]);
 const ranges = {
   extent: [0.1, 20], resolution: [16, 144], size: [0.3, 1.5], thickness: [0.05, 0.8],
   secondaryRatio: [0, 1], seed: [0, 1_000_000], ambientIntensity: [0, 1],
   mainIntensity: [0, 2], mainAzimuth: [-180, 180], mainElevation: [-90, 90], fillIntensity: [0, 2],
+  density: [0, 4000], hairLength: [0.01, 0.6], hairWidth: [0.001, 0.15],
+  disorder: [0, 1], variation: [0, 1], clump: [0, 1], clumpSize: [0.03, 1],
 };
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 
@@ -22,8 +28,13 @@ export function validateProject(project) {
   if (!isRecord(project.defaults)) throw new Error("defaults にデフォルト設定が必要です。");
   const defaults = {};
   for (const key of Object.keys(defaultSettings)) {
-    const value = project.defaults[key];
-    if (key === "color" || key === "secondaryColor") {
+    const value = effectKeys.has(key) && !Object.hasOwn(project.defaults, key)
+      ? defaultSettings[key] : project.defaults[key];
+    if (key === "effect") {
+      if (!["none", "fur", "fluffy"].includes(value)) throw new Error("defaults.effect は none / fur / fluffy で指定してください。");
+    } else if (key === "base") {
+      if (typeof value !== "boolean") throw new Error("defaults.base は true / false で指定してください。");
+    } else if (key === "color" || key === "secondaryColor") {
       if (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value)) {
         throw new Error(`defaults.${key} は #RRGGBB 形式で指定してください。`);
       }
@@ -62,13 +73,16 @@ export function projectFilename(name, fallback = "sdf-scene", extension = "json"
 export function readSettings(byId) {
   return Object.fromEntries(Object.keys(defaultSettings).map(key => {
     const input = byId(key);
-    return [key, input.type === "color" ? input.value
+    return [key, input.type === "checkbox" ? input.checked
+      : key === "effect" || input.type === "color" ? input.value
       : input.valueAsNumber / (key === "secondaryRatio" ? 100 : 1)];
   }));
 }
 
 export function applySettings(settings, byId) {
   for (const [key, value] of Object.entries(settings)) {
-    byId(key).value = key === "secondaryRatio" ? value * 100 : value;
+    const input = byId(key);
+    if (input.type === "checkbox") input.checked = value;
+    else input.value = key === "secondaryRatio" ? value * 100 : value;
   }
 }

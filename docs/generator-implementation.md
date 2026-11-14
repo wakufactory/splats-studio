@@ -71,7 +71,7 @@ CodeMirrorの編集結果は、更新リスナーが `#source` のtextareaへ書
 
 ### 3.2 UI設定と単位
 
-`readSettings(byId)` は画面の設定を平坦なオブジェクトに変換します。`secondaryRatio` だけは画面の0〜100%を0〜1へ変換します。`applySettings(settings, byId)` は逆変換します。角度は度、色は `#RRGGBB`、探索範囲・毛の寸法はSDFと同じ単位です。
+`readSettings(byId)` は画面の設定を平坦なオブジェクトに変換します。`secondaryRatio` だけは画面の0〜100%を0〜1へ変換します。`applySettings(settings, byId)` は逆変換します。エフェクトの種類は文字列、下地の有無はチェック状態のbooleanで読み書きします。左ペイン末尾にエフェクトの全デフォルト項目を配置し、DSLで指定した項目を優先します。角度は度、色は `#RRGGBB`、探索範囲・毛の寸法はSDFと同じ単位です。
 
 既定値を持つ場所は次のとおりです。
 
@@ -86,7 +86,7 @@ CodeMirrorの編集結果は、更新リスナーが `#source` のtextareaへ書
 
 ### 3.3 JSONプロジェクト
 
-JSONの構造は次のとおりです。`defaults` は `defaultSettings` の全項目を持つオブジェクトです。
+JSONの構造は次のとおりです。`defaults` は `defaultSettings` の全項目を持つオブジェクトです。エフェクト項目がない従来のversion 1 JSONは、その項目を初期値で補って読み込みます。指定済みの不正値はエラーにします。
 
 ```js
 {

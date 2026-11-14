@@ -23,6 +23,10 @@
       <p class="eyebrow">SURFACE GENERATOR / SPARK.JS</p>
       <h1>SDF Splat Studio</h1>
     </div>
+    <div class="form-actions">
+      <button class="primary" id="generate" type="submit" form="generator" disabled>スプラットを生成</button>
+      <button id="cancel" type="button" hidden>中止</button>
+    </div>
     <p id="status" role="status">起動中…</p>
   </header>
   <main>
@@ -41,10 +45,6 @@
           <button id="download-sog" type="button" disabled aria-describedby="sog-status">SOG を保存</button>
         </div>
         <p id="sog-status" class="hint" role="status">SOG 保存を確認中…</p>
-      </div>
-      <div class="form-actions">
-        <button class="primary" id="generate" type="submit" disabled>スプラットを生成</button>
-        <button id="cancel" type="button" hidden>中止</button>
       </div>
       <h2>デフォルト設定</h2>
       <p class="hint">各 object のデフォルト値です。DSL の defaults・object 内で上書きできます。</p>
@@ -72,6 +72,23 @@
         <label>補助光の強さ<output for="fillIntensity"></output><input id="fillIntensity" type="range" min="0" max="2" step="0.01" value="0.23"></label>
         <p class="hint wide">光源のある方向を指定します。方位角 0° は +Z、90° は +X、仰角 90° は真上（+Y）。補助光は固定方向です。「スプラットを生成」で色に反映します。</p>
       </fieldset>
+      <fieldset>
+        <legend>表面エフェクト（デフォルト）</legend>
+        <label class="wide">種類<select id="effect">
+          <option value="none">なし</option>
+          <option value="fur">毛・起毛</option>
+          <option value="fluffy">モコモコ</option>
+        </select></label>
+        <label>密度<input id="density" type="number" min="0" max="4000" step="any" value="700" required></label>
+        <label>長さ<input id="hairLength" type="number" min="0.01" max="0.6" step="any" value="0.16" required></label>
+        <label>太さ<input id="hairWidth" type="number" min="0.001" max="0.15" step="any" value="0.012" required></label>
+        <label>毛束の大きさ<input id="clumpSize" type="number" min="0.03" max="1" step="any" value="0.25" required></label>
+        <label class="wide">方向の乱れ<output for="disorder"></output><input id="disorder" type="range" min="0" max="1" step="0.01" value="0.35"></label>
+        <label class="wide">長さ・太さのばらつき<output for="variation"></output><input id="variation" type="range" min="0" max="1" step="0.01" value="0.4"></label>
+        <label class="wide">毛束感<output for="clump"></output><input id="clump" type="range" min="0" max="1" step="0.01" value="0.3"></label>
+        <label class="checkbox wide"><input id="base" type="checkbox" checked>下地の表面を残す</label>
+        <p class="hint wide">DSLで省略した項目に適用します。乱数シードは上のスプラット設定と共通です。「スプラットを生成」で反映します。<a href="./dsl.html#surface-effects" target="_blank" rel="noopener">詳細仕様</a></p>
+      </fieldset>
     </form>
     <section class="preview" aria-label="Spark プレビュー">
       <div id="viewport"></div>
@@ -94,7 +111,7 @@
       </div>
       <p class="hint">複数のSDFとobjectを定義できます。負が内部、0 が表面。Y 軸が上です。</p>
       <div class="source-code"><textarea form="generator" id="source" aria-label="Scene DSL コード" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></div>
-      <p class="hint">エフェクトはDSL内で指定します。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
+      <p class="hint">エフェクトのデフォルト値は左ペインで設定し、DSLで上書きできます。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
       <p class="hint editor-help">Tab：インデント · Ctrl / ⌘ + F：検索 · Ctrl / ⌘ + Enter：生成</p>
     </section>
   </main>

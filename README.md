@@ -41,7 +41,7 @@ npm run start:http
 
 WebXR対応環境では、ファイルを開いた後に「AR」「VR」で没入表示できます（HTTPSまたはlocalhostが必要）。`../glbv/` と同じく、最大辺を約1mに合わせて視点の前方に配置します。ARは背景を透過し、面が検出されるとリングを表示、タップでその面に配置します。面検出が使えない場合も前方に表示します。VRは片手のピンチ移動で回転、両手のピンチで拡縮できます。点群表示にも対応します。「XRを終了」またはヘッドセット側の終了操作で元の視点・倍率・裸眼立体視設定に戻ります。非対応環境ではAR/VRボタンを無効にし、理由をツールチップに表示します。
 
-1. 初期表示はトーラスです。Scene DSL を編集して「スプラットを生成」を押します。「複数SDFと毛・房」プリセットに複数objectの例があります。単一SDFのJavaScriptモードは廃止しました。サンプリング・スプラット・照明の設定UIは、DSLで省略した項目のデフォルト値として使います。エフェクトはDSL内で指定します。
+1. 初期表示はトーラスです。Scene DSL を編集して「スプラットを生成」を押します。「複数SDFと毛・房」プリセットに複数objectの例があります。単一SDFのJavaScriptモードは廃止しました。サンプリング・スプラット・照明・エフェクトの設定UIは、DSLで省略した項目のデフォルト値として使います。エフェクト設定は左ペイン下部にあります。
 2. 形状が探索範囲の境界にかかる場合は「探索範囲 ±」を広げます。細い部分が消える場合は、探索範囲を絞るか分割数を上げます。
 3. ドラッグで回転、スクロールでズーム、右ドラッグで移動します。再生成しても視点は維持されます。「視点リセット」で形状全体に合わせ、「中心点」で配置を点表示できます。
    描画に3秒以上かかった場合、または1フレーム500 ms以上の状態が3回続いた場合は、メッセージを表示してプレビューを停止します。再生成に成功すると描画を再開します。停止中も保存でき、タブ切り替えだけでは再開しません。
@@ -57,7 +57,7 @@ PCでは CAD と同じ3ペイン構成（左：デフォルト設定、中央：
 
 左上の「JSON を保存」でDSL全文と画面の全デフォルト設定・保存名を1つのJSONに保存し、「JSON を開く」で復元します。読み込みでは現在のプレビューを保持し、「スプラットを生成」で読み込んだ内容を反映します。不正なJSONや設定値、未対応バージョンはエラーにし、編集内容は保持します。途中のDSLも保存でき、DSL自体の構文検証は生成時に行います。PLY / SOGの保存は生成済みの結果を書き出します。
 
-JSON形式は `format: "sdf-splat-studio"`、`version: 1`、`source`（DSL文字列）、`defaults`（全デフォルト設定）、`name`（任意の保存名）です。`defaults` のキーは `extent`, `resolution`, `size`, `thickness`, `color`, `secondaryColor`, `secondaryRatio`, `seed`, `ambientIntensity`, `mainIntensity`, `mainAzimuth`, `mainElevation`, `fillIntensity`。`secondaryRatio` は0〜1で、画面では0〜100%に変換します。角度は度単位、色は `#RRGGBB` です。
+JSON形式は `format: "sdf-splat-studio"`、`version: 1`、`source`（DSL文字列）、`defaults`（全デフォルト設定）、`name`（任意の保存名）です。`defaults` のキーは `extent`, `resolution`, `size`, `thickness`, `color`, `secondaryColor`, `secondaryRatio`, `seed`, `ambientIntensity`, `mainIntensity`, `mainAzimuth`, `mainElevation`, `fillIntensity`, `effect`, `density`, `hairLength`, `hairWidth`, `disorder`, `variation`, `clump`, `clumpSize`, `base`。エフェクト項目を含まない従来のversion 1 JSONは、エフェクト設定を初期値で補って読み込みます。JSONの `effect`・`hairLength`・`hairWidth` はDSLの `effect.type`・`effect.length`・`effect.width` に対応します。`secondaryRatio` は0〜1で、画面では0〜100%に変換します。角度は度単位、色は `#RRGGBB` です。
 
 配信にはビルド済みの `html/source-editor.bundle.js` とライセンス表示を同梱しており、従来どおり `html/` の配置だけで利用できます。エディタを変更する場合のみ `npm ci`、`npm run build:editor` で再ビルドしてください。ソースは `editor/source-editor.mjs` です。
 
@@ -146,7 +146,7 @@ scene {
 
 ## 表面エフェクト
 
-各objectまたは `scene.defaults` 内の `effect { ... }` で指定します。未指定の項目は項目ごとに継承し、共通設定もなければ次の既定値を使います。設定後に「スプラットを生成」を押すと反映されます。再生成しても視点は維持され、PLY / SOG にも個々の splat の大きさ・向き・色が反映されます。
+各objectまたは `scene.defaults` 内の `effect { ... }` で指定します。未指定の項目は「左ペインのデフォルト設定 → scene.defaults → object」の順に項目ごとに継承します。下表はUIの初期値です。設定後に「スプラットを生成」を押すと反映されます。再生成しても視点は維持され、PLY / SOG にも個々の splat の大きさ・向き・色が反映されます。
 
 | DSLパラメータ | 既定値 | 範囲・指定値 | 内容 |
 |---|---|---|---|
