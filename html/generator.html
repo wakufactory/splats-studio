@@ -113,6 +113,17 @@
       <div class="source-code"><textarea form="generator" id="source" aria-label="Scene DSL コード" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></div>
       <p class="hint">エフェクトのデフォルト値は左ペインで設定し、DSLで上書きできます。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
       <p class="hint editor-help">Tab：インデント · Ctrl / ⌘ + F：検索 · Ctrl / ⌘ + Enter：生成</p>
+      <section id="chat-pane" class="chat-pane" hidden aria-label="モデル編集チャット">
+        <div class="chat-heading"><h2>モデル編集チャット</h2><button id="chat-toggle" type="button" aria-expanded="true" aria-controls="chat-pane">チャットを閉じる</button><div class="chat-tools"><button id="chat-connect" type="button">接続確認</button><button id="chat-attach" type="button" title="PNG / JPEG / WebP · 3枚まで · 各2 MiB">画像を添付</button><button id="chat-reset" type="button">新しい会話</button></div></div>
+        <div class="chat-connection"><div id="chat-status" role="status">Codex の接続を確認中…</div><button id="chat-login" type="button" hidden>ChatGPT にログイン</button></div>
+        <a id="chat-login-link" target="_blank" rel="noopener noreferrer" hidden>ログインを開く（サーバーのMacで操作）</a>
+        <div id="chat-history" role="log" aria-label="会話履歴" aria-live="polite"></div>
+        <div id="chat-proposal" hidden>手動編集があったため、自動反映を止めました。反映すると変更対象のScene DSLを置き換えます。<button id="chat-apply" type="button">変更案を反映</button></div>
+        <textarea id="chat-input" maxlength="8000" placeholder="例：赤いふわふわのテディベアにして" spellcheck="false"></textarea>
+        <input id="chat-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <div id="chat-images" class="chat-images" aria-label="送信する画像" hidden></div>
+        <div class="chat-controls"><button id="chat-send" class="primary" disabled>送信</button><button id="chat-stop" disabled>停止</button><button id="chat-undo" disabled>変更を戻す</button></div>
+      </section>
     </section>
   </main>
   <script type="module" src="./display-mode.js"></script>

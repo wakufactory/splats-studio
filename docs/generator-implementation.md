@@ -4,7 +4,7 @@
 
 ## 1. 全体構成
 
-generatorはブラウザーだけで動作します。メインスレッドが編集・画面表示・保存操作を担当し、SDFからの生成とSOG圧縮を別々のWorkerで実行します。ローカルサーバーは静的ファイルを配信し、モデルを生成・保管するAPIは持ちません。
+generatorはブラウザーだけで動作します。メインスレッドが編集・画面表示・保存操作を担当し、SDFからの生成とSOG圧縮を別々のWorkerで実行します。ローカルPythonサーバーは静的ファイルと任意のGPTチャットAPIを提供します。モデル生成・保存は引き続きブラウザー内で完結します。
 
 エントリーポイントは [html/generator.html](../html/generator.html) です。`html/viewer.js` は名前にviewerとありますが、generatorの画面制御です。ファイルビュアーの画面制御は `html/file-viewer.js` です。現在の `html/index.html` の自動遷移先はファイルビュアーなので、generatorへは `/generator.html` を開きます。
 
@@ -46,10 +46,14 @@ flowchart TD
 | [html/splat-resources.mjs](../html/splat-resources.mjs) | `disposeSplatMesh`。Sparkの生成マテリアルを含む旧モデルの解放 |
 | [html/render-watchdog.mjs](../html/render-watchdog.mjs) | `RenderWatchdog`。極端に遅い描画を検出してプレビューを停止するための状態管理 |
 | [html/display-mode.js](../html/display-mode.js) | generatorとファイルビュアーで共用する全画面・ヘッダー表示操作 |
+| [chat-modeling-guide.md](../chat-modeling-guide.md) | チャット用DSL仕様。HTMLリファレンスの内容をMarkdown化し、新しい会話の基本指示として読み込む。DSL変更時はHTMLと同期する |
 | [html/dsl.html](../html/dsl.html) | 利用者向けDSLリファレンス。実行処理は持たない静的ページ |
 | [editor/source-editor.mjs](../editor/source-editor.mjs) | CodeMirror設定、DSLの色分け・補完、textareaとの同期、`mountSourceEditor` |
 | [editor/build.mjs](../editor/build.mjs) | エディターのIIFEバンドルとライセンスファイルを生成 |
-| [scripts/serve.mjs](../scripts/serve.mjs) | `html/` のHTTP/HTTPS配信とローカル証明書管理 |
+| [server/server.py](../server/server.py) | `html/` のHTTP/HTTPS配信、証明書管理、同一オリジンのチャットAPI |
+| [server/codex_bridge.py](../server/codex_bridge.py) | CAD由来のCodex stdioブリッジ。`chat-modeling-guide.md` を指示に使用 |
+| [html/chat.js](../html/chat.js) | 接続可否に応じた表示、会話・画像、DSL反映、競合保留、undo、自動修正 |
+| [scripts/serve.mjs](../scripts/serve.mjs) | Pythonサーバーを起動する互換入口 |
 
 スタイルは `viewer.css` が共通の基礎、`header.css` がヘッダーと全画面操作、`generator.css` がgenerator固有の3ペイン配置とCodeMirrorの調整です。後から読み込む `generator.css` がgeneratorのレイアウトを上書きします。800px以下では設定列＋右側上下ペイン、520px以下では縦3段へ切り替えます。
 

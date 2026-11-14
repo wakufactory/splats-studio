@@ -1,0 +1,269 @@
+/* Scene DSL conversations; credentials stay in the local Codex process. */
+export function mountChat(model) {
+  const $ = id => document.getElementById(id);
+  let sessionId = null, busy = false, ready = false, undo = null, proposal = null;
+  let editorRevision = 0, loginTimer = null;
+  let transcript = [], restoredContext = null;
+  let attachments = [], readingImages = false;
+  let stopRequested = false;
+  let activePoll = null;
+  const history = $('chat-history');
+  let chatCollapsed = false;
+  $('chat-toggle').onclick = () => {
+    chatCollapsed = !chatCollapsed;
+    $('chat-pane').setAttribute('data-collapsed', String(chatCollapsed));
+    $('chat-toggle').setAttribute('aria-expanded', String(!chatCollapsed));
+    $('chat-toggle').textContent = chatCollapsed ? 'チャットを開く' : 'チャットを閉じる';
+  };
+  function entry(role, text, error = false, record = true, images = []) {
+    if(record){
+      transcript.push({role,text,...(error ? {error:true} : {}),...(images.length?{images:images.map(item=>({...item}))}:{})});
+      if(transcript.length>100)transcript.shift();
+    }
+    const box = document.createElement('div'), label = document.createElement('strong');
+    box.className = `chat-entry ${role}${error ? ' error' : ''}`;
+    label.textContent = {user: 'あなた', assistant: 'GPT', system: 'GS'}[role];
+    box.append(label, document.createTextNode(text));
+    for(const image of images){const img=document.createElement('img');img.src=image.dataUrl;img.alt=image.name;box.append(img);}
+    history.append(box);
+    while (history.children.length > 100) history.firstChild.remove();
+    history.scrollTop = history.scrollHeight;
+  }
+  function controls() {
+    $('chat-send').disabled = busy || readingImages || !ready;
+    $('chat-stop').disabled = !busy || !sessionId || stopRequested;
+    $('chat-reset').disabled = busy || readingImages;
+    $('chat-undo').disabled = busy || !undo;
+    $('chat-apply').disabled = busy || !proposal;
+    $('chat-input').disabled = busy;
+    $('chat-login').disabled = busy;
+    $('chat-connect').disabled = busy;
+    $('chat-proposal').hidden = !proposal;
+    $('chat-attach').disabled=busy || readingImages;
+    $('chat-files').disabled=busy || readingImages;
+    for(const button of $('chat-images').children)if(button.removeButton)button.removeButton.disabled=busy || readingImages;
+  }
+  function showAttachments(){
+    const area=$('chat-images');area.replaceChildren();area.hidden=!attachments.length;
+    attachments.forEach((image,index)=>{
+      const item=document.createElement('div'),img=document.createElement('img'),remove=document.createElement('button');
+      item.className='chat-image';img.src=image.dataUrl;img.alt=image.name;
+      remove.type='button';remove.textContent='削除';remove.setAttribute('aria-label',`${image.name} を削除`);
+      remove.onclick=()=>{if(busy || readingImages)return;attachments.splice(index,1);showAttachments();controls();};
+      item.removeButton=remove;item.append(img,document.createTextNode(image.name),remove);area.append(item);
+    });
+  }
+  $('chat-attach').onclick=()=>$('chat-files').click();
+  $('chat-files').onchange=async event=>{
+    if(busy || readingImages)return;
+    const files=Array.from(event.target.files || []);
+    readingImages=true;controls();
+    try{
+      if(attachments.length+files.length>3)throw Error('画像は3枚まで添付できます');
+      const added=[];
+      for(const file of files){
+        if(!['image/png','image/jpeg','image/webp'].includes(file.type) || !file.size || file.size>2*1024*1024)throw Error('画像はPNG・JPEG・WebP、1枚2 MiB以下にしてください');
+        const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('画像を読み込めませんでした'));reader.readAsDataURL(file);});
+        added.push({name:file.name.slice(0,200),dataUrl});
+      }
+      attachments=[...attachments,...added];showAttachments();
+    }catch(error){entry('system',error.message,true);}
+    finally{event.target.value='';readingImages=false;controls();}
+  };
+  async function api(path, body, timeoutMs = 45000) {
+    const controller=new AbortController();
+    if(path==='/chat/poll')activePoll=controller;
+    let timer;
+    const aborted=new Promise((_,reject)=>{
+      controller.signal.addEventListener('abort',()=>reject(Error(stopRequested ? '停止しました。' : '通信が時間切れになりました。次の指示を送信できます。')),{once:true});
+      timer=setTimeout(()=>controller.abort(),timeoutMs);
+    });
+    try {
+      return await Promise.race([(async()=>{
+        const response = await fetch(path, {signal:controller.signal,...(body===undefined ? {} : {
+          method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+        })});
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || 'チャットの処理に失敗しました');
+        return data;
+      })(),aborted]);
+    } finally {
+      clearTimeout(timer);
+      if(activePoll===controller)activePoll=null;
+    }
+  }
+  function releaseSession() {
+    const previous=sessionId;
+    sessionId=null;
+    // The next request starts a fresh Codex thread using the visible transcript.
+    restoredContext=transcript.map(item=>({...item}));
+    if(previous)api('/chat/cancel',{sessionId:previous},10000)
+      .then(()=>api('/chat/reset',{sessionId:previous},10000)).catch(()=>{});
+  }
+  function failed(error) {
+    entry('system',stopRequested ? '停止しました。自動修正は続行しません。' : error.message,!stopRequested);
+    $('chat-status').textContent=stopRequested ? '停止しました。次の指示を送信できます。' : '次の指示を送信できます。';
+    releaseSession();
+  }
+  async function connect({ initial = false } = {}) {
+    try {
+      const state = await api('/chat/status', undefined, 8000);
+      if (typeof state.available !== 'boolean' || typeof state.ready !== 'boolean') throw Error('Invalid chat status');
+      if (initial) $('chat-pane').hidden = !state.available;
+      ready = state.ready;
+      $('chat-status').textContent = state.message;
+      $('chat-login').hidden = !state.available || ready;
+      if (ready || state.login?.error) {
+        clearTimeout(loginTimer); loginTimer = null;
+        $('chat-login-link').hidden = true;
+        if (state.login?.error) $('chat-status').textContent = state.login.error;
+      } else if (state.login?.pending) {
+        loginTimer = setTimeout(connect, 2000);
+      }
+    } catch (error) {
+      ready = false;
+      if (initial) $('chat-pane').hidden = true;
+      $('chat-status').textContent = error.message;
+    }
+    controls();
+  }
+  function changed() { editorRevision++; }
+  $('source').addEventListener('input', changed);
+  $('generator').addEventListener('input', changed);
+  $('preset').addEventListener('change', changed);
+  $('project-file').addEventListener('change', changed);
+  async function apply(source, preserveUndo = false) {
+    const before = model.snapshot();
+    if (!preserveUndo) undo = before;
+    model.setSource(source ?? before.source);
+    changed(); proposal=null; controls();
+    const revision=editorRevision, applied=model.snapshot();
+    const error = await model.preview();
+    if (error) {
+      entry('system', `プレビューでエラーが出ました。\n${error}`, true);
+      return {...applied, revision, error};
+    }
+    return null;
+  }
+  async function exchange(text, images = [], preserveUndo = false) {
+    const document=model.snapshot(), revision=editorRevision;
+    const {source, mode, parameters} = document;
+    const previewError = model.error();
+    entry('user', text, false, true, images);
+    $('chat-status').textContent = '送信中…';
+    const sent = await api('/chat/send', {sessionId, message: text, source, mode, parameters, previewError,
+      ...(images.length ? {images} : {}),
+      ...(restoredContext ? {restoredHistory:restoredContext} : {})});
+    sessionId = sent.sessionId; restoredContext=null; attachments=[];showAttachments();controls();
+    if(stopRequested)await api('/chat/cancel',{sessionId});
+    const deadline = Date.now() + 330000;
+    let state;
+    do {
+      state = await api('/chat/poll', {sessionId},15000);
+      if (state.state !== 'running') break;
+      if (Date.now() > deadline) throw Error('応答の確認が時間切れになりました。待機を終了しました。次の指示を送信できます。');
+      $('chat-status').textContent = state.progress || '考えています…';
+      await new Promise(resolve => setTimeout(resolve, 700));
+    } while (true);
+    if (state.state === 'cancelled' || stopRequested) {
+      entry('system', '停止しました。自動修正は続行しません。');
+    } else if (state.state === 'failed') {
+      throw Error(state.error || 'Codex の処理に失敗しました');
+    } else if (state.state === 'completed') {
+      entry('assistant', state.result.message);
+      const nextSource=state.result.source ?? null;
+      if (nextSource!==null && (nextSource!==source || previewError)) {
+        if (revision!==editorRevision || JSON.stringify(model.snapshot())!==JSON.stringify(document) || !model.canApply()) {
+          proposal={source:nextSource,mode};
+          entry('system','応答待ちの間に設定が変更されたため、変更案を保留しました。');
+        } else {
+          return await apply(nextSource,preserveUndo);
+        }
+      }
+    } else throw Error('チャットの状態を読み取れませんでした');
+    return null;
+  }
+  async function repair(failure) {
+    for(let retry=1;failure && retry<=2;retry++){
+      if(stopRequested)return;
+      if(failure.revision!==editorRevision || failure.source!==$('source').value || JSON.stringify(failure.parameters)!==JSON.stringify(model.snapshot().parameters)){
+        entry('system','プレビュー中にモデルまたは設定が変更されたため、自動修正を止めました。');
+        return;
+      }
+      entry('system',`エラーを添えて自動修正を依頼します（${retry}/2）。`);
+      failure=await exchange(`モデルのプレビューに失敗しました。以下のエラーを修正し、変更するモデルまたは設定の全文を返してください。\n\n${String(failure.error).slice(0,7000)}`,[],true);
+    }
+    if(failure && !stopRequested)entry('system','自動修正を2回試しましたが、プレビューに失敗しました。ソースとエラーを確認してください。',true);
+  }
+  async function send() {
+    if (busy || readingImages || !ready || (!$('chat-input').value.trim() && !attachments.length)) return;
+    try { model.snapshot(); }
+    catch(error){entry('system',error.message,true);return;}
+    const text=$('chat-input').value.trim() || '添付画像を参考にモデルを編集してください。';
+    const images=attachments.map(item=>({...item}));
+    busy=true;stopRequested=false;proposal=null;$('chat-input').value='';controls();
+    try {
+      await repair(await exchange(text,images));
+      $('chat-status').textContent = 'ChatGPT 接続済み';
+    } catch (error) {
+      const accepted=!!sessionId;
+      failed(error);
+      void connect();
+      if(!accepted)$('chat-input').value=text;
+    } finally { busy = false; controls(); }
+  }
+  $('chat-send').onclick = send;
+  $('chat-connect').onclick = () => { clearTimeout(loginTimer); connect(); };
+  $('chat-input').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+      event.preventDefault(); send();
+    }
+  });
+  $('chat-login').onclick = async () => {
+    $('chat-login').disabled = true;
+    try {
+      const state = await api('/chat/login', {}), link = $('chat-login-link');
+      const url = new URL(state.url);
+      if (url.protocol !== 'https:' || !['auth.openai.com', 'auth0.openai.com', 'chatgpt.com'].includes(url.hostname)) throw Error('ログインURLを確認できませんでした');
+      link.href = url.href; link.hidden = false;
+      $('chat-status').textContent = 'ログインを開き、サーバーのMacで認証してください';
+      clearTimeout(loginTimer); loginTimer = setTimeout(connect, 2000);
+    } catch (error) { $('chat-status').textContent = error.message; }
+    finally { controls(); }
+  };
+  $('chat-stop').onclick = async () => {
+    stopRequested=true;
+    $('chat-stop').disabled = true;
+    activePoll?.abort();
+    const stopping=sessionId;
+    try { if(stopping)await api('/chat/cancel', {sessionId:stopping},10000);if(busy && sessionId===stopping)$('chat-status').textContent = '停止しています…'; }
+    catch (error) { entry('system', error.message, true); controls(); }
+  };
+  $('chat-reset').onclick = async () => {
+    if (busy || readingImages) return;
+    try {
+      if (sessionId) await api('/chat/reset', {sessionId});
+    } catch (error) { entry('system', error.message, true); return; }
+    sessionId = null; proposal = null; undo = null; restoredContext=null; transcript=[]; attachments=[];showAttachments();history.replaceChildren();
+    controls(); await connect();
+  };
+  $('chat-undo').onclick = async () => {
+    if (!undo || busy || !model.canApply()) return;
+    const previous = undo; undo = null; proposal = null;
+    busy=true; controls();
+    entry('system','チャットによる変更の直前のモデルに戻しました。');
+    try { await apply(previous.source,true); }
+    finally { busy=false; controls(); }
+  };
+  $('chat-apply').onclick = async () => {
+    if (!proposal || busy || !model.canApply()) return;
+    busy = true; stopRequested=false;controls();
+    try { await repair(await apply(proposal.source));$('chat-status').textContent='ChatGPT 接続済み'; }
+    catch(error){failed(error);}
+    finally { busy = false; controls(); }
+  };
+  entry('system', 'Scene DSLの変更を指示してください。現在のモデルを送信し、編集結果を反映します。', false, false);
+  connect({ initial: true });
+  window.addEventListener("online", connect);
+  setInterval(() => { if (!busy && !readingImages && !$("chat-pane").hidden) connect(); }, 30000);
+}

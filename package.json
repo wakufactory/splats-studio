@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node scripts/serve.mjs",
-    "start:http": "node scripts/serve.mjs --http --port 8080",
-    "test": "node --test test/*.test.mjs",
+    "start": "python3 server/server.py",
+    "start:http": "python3 server/server.py --http --port 8080",
+    "test": "node --test test/*.test.mjs && python3 -m unittest discover -s test -p 'test_*.py'",
     "build:editor": "node editor/build.mjs"
   },
   "engines": {

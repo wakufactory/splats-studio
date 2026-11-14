@@ -1,3 +1,4 @@
+import { mountChat } from "./chat.js";
 import { readSettings, applySettings, parseProject, serializeProject, projectFilename } from "./generator-project.mjs";
 import { scenePresets as presets } from "./scene-presets.mjs";
 import { encodePly, STRIDE } from "./sdf.mjs";
@@ -308,9 +309,12 @@ async function start() {
     updateSogButton();
   }
 
+  let previewFailure = null;
   async function regenerate() {
-    if (job || sogBusy) return;
+    if (job || sogBusy) return "生成・保存処理の完了後に再生成してください。";
     const options = readSettings(byId);
+    const requestSource = source.value;
+    previewFailure = null;
     const name = preset.value ? `sdf-${preset.value}` : "sdf-surface";
     job = new AbortController();
     loadProject.disabled = projectFile.disabled = true;
@@ -319,7 +323,7 @@ async function start() {
     cancel.hidden = false;
     showStatus("表面をサンプリング中…");
     try {
-      const next = await sampleInWorker({ source: source.value, options }, job.signal);
+      const next = await sampleInWorker({ source: requestSource, options }, job.signal);
       cancel.hidden = true;
       showStatus("Spark プレビューを準備中…");
       await display(next);
@@ -332,6 +336,7 @@ async function start() {
       showStatus(next.clipped ? `${stats}。${next.objects.filter(object => object.clipped).map(object => object.name).join(", ")} が境界に達しています。探索範囲を広げてください。` : stats,
         next.clipped ? "warning" : "");
     } catch (error) {
+      previewFailure = {source: requestSource, parameters: options, error: error.message};
       const previous = result ? (renderWatchdog.stopped
         ? " 前回の結果は保持しています。描画は停止中です。" : " 前回の結果を表示しています。") : "";
       if (error.name === "AbortError") showStatus(`生成を中止しました。${previous}`);
@@ -343,7 +348,17 @@ async function start() {
       cancel.hidden = true;
       updateSogButton();
     }
+    return previewFailure?.error ?? null;
   }
+
+  mountChat({
+    snapshot: () => ({source: source.value, mode: "text", parameters: readSettings(byId)}),
+    setSource,
+    canApply: () => !job && !sogBusy,
+    preview: regenerate,
+    error: () => previewFailure?.source === source.value &&
+      JSON.stringify(previewFailure.parameters) === JSON.stringify(readSettings(byId)) ? previewFailure.error : null,
+  });
 
   form.addEventListener("submit", event => { event.preventDefault(); void regenerate(); });
   cancel.addEventListener("click", () => job?.abort());
