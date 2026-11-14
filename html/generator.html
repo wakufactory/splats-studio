@@ -39,15 +39,13 @@
         <button id="load-project" type="button">JSON を開く</button>
         <button id="save-project" type="button">JSON を保存</button>
         <p id="project-status" class="hint" role="status">DSL とデフォルト設定をまとめて保存できます。</p>
-
         <input id="project-file" type="file" accept=".json,application/json" hidden>
-          <button id="download" type="button" disabled>PLY を保存</button>
-          <button id="download-sog" type="button" disabled aria-describedby="sog-status">SOG を保存</button>
+        <button id="download" type="button" disabled>PLY を保存</button>
+        <button id="download-sog" type="button" disabled aria-describedby="sog-status">SOG を保存</button>
         </div>
         <p id="sog-status" class="hint" role="status">SOG 保存を確認中…</p>
       </div>
       <h2>デフォルト設定</h2>
-      <p class="hint">各 object のデフォルト値です。DSL の defaults・object 内で上書きできます。</p>
       <fieldset>
         <legend>サンプリング（デフォルト）</legend>
         <label>探索範囲 ±<input id="extent" type="number" min="0.1" max="20" step="any" value="1.5" required></label>
@@ -61,7 +59,6 @@
         <label>補助色<input id="secondaryColor" type="color" value="#de7194"></label>
         <label class="wide">補助色の割合（%）<output for="secondaryRatio"></output><input id="secondaryRatio" type="range" min="0" max="100" step="1" value="0"></label>
         <label>乱数シード<input id="seed" type="number" min="0" max="1000000" step="1" value="1" required></label>
-        <p class="hint wide">各 splat を指定の確率で補助色に置き換えます。生成時に反映します。</p>
       </fieldset>
       <fieldset>
         <legend>照明（デフォルト）</legend>
@@ -70,7 +67,7 @@
         <label>方位角（°）<output for="mainAzimuth"></output><input id="mainAzimuth" type="range" min="-180" max="180" step="0.01" value="46.15"></label>
         <label>仰角（°）<output for="mainElevation"></output><input id="mainElevation" type="range" min="-90" max="90" step="0.1" value="58.2"></label>
         <label>補助光の強さ<output for="fillIntensity"></output><input id="fillIntensity" type="range" min="0" max="2" step="0.01" value="0.23"></label>
-        <p class="hint wide">光源のある方向を指定します。方位角 0° は +Z、90° は +X、仰角 90° は真上（+Y）。補助光は固定方向です。「スプラットを生成」で色に反映します。</p>
+        <p class="hint wide">方位角 0° は +Z、90° は +X、仰角 90° は真上（+Y）。補助光は固定方向です。</p>
       </fieldset>
       <fieldset>
         <legend>表面エフェクト（デフォルト）</legend>
@@ -105,14 +102,12 @@
     <section class="source-pane" aria-label="Scene DSL エディタ">
       <div class="form-heading">
         <h2>Scene DSL を編集</h2>
+        <a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a>
         <select id="preset" aria-label="Scene DSL プリセット">
           <option value="" hidden>カスタム</option>
         </select>
       </div>
-      <p class="hint">複数のSDFとobjectを定義できます。負が内部、0 が表面。Y 軸が上です。</p>
       <div class="source-code"><textarea form="generator" id="source" aria-label="Scene DSL コード" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></div>
-      <p class="hint">エフェクトのデフォルト値は左ペインで設定し、DSLで上書きできます。<a href="./dsl.html" target="_blank" rel="noopener">DSLの書き方</a></p>
-      <p class="hint editor-help">Tab：インデント · Ctrl / ⌘ + F：検索 · Ctrl / ⌘ + Enter：生成</p>
       <section id="chat-pane" class="chat-pane" hidden aria-label="モデル編集チャット">
         <div class="chat-heading"><h2>モデル編集チャット</h2><button id="chat-toggle" type="button" aria-expanded="true" aria-controls="chat-pane">チャットを閉じる</button><div class="chat-tools"><button id="chat-connect" type="button">接続確認</button><button id="chat-attach" type="button" title="PNG / JPEG / WebP · 3枚まで · 各2 MiB">画像を添付</button><button id="chat-reset" type="button">新しい会話</button></div></div>
         <div class="chat-connection"><div id="chat-status" role="status">Codex の接続を確認中…</div><button id="chat-login" type="button" hidden>ChatGPT にログイン</button></div>

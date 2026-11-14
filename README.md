@@ -73,7 +73,9 @@ PCでは CAD と同じ3ペイン構成（左：デフォルト設定、中央：
 
 エディタは CodeMirror 6 を使い、行番号・DSL構文の色分け・補完・検索・Undo/Redoに対応します。Tab / Shift+Tabでインデント、Ctrl / ⌘ + Fで検索、Ctrl / ⌘ + Enterで生成できます。
 
-左上の「JSON を保存」でDSL全文と画面の全デフォルト設定・保存名を1つのJSONに保存し、「JSON を開く」で復元します。読み込みでは現在のプレビューを保持し、「スプラットを生成」で読み込んだ内容を反映します。不正なJSONや設定値、未対応バージョンはエラーにし、編集内容は保持します。途中のDSLも保存でき、DSL自体の構文検証は生成時に行います。PLY / SOGの保存は生成済みの結果を書き出します。
+編集中のDSLは変更のたびにブラウザーのlocalStorageへ自動保存し、リロード時に復元してスプラットを生成します。空欄や編集中の不完全なDSLも保存します。デフォルト設定と保存名はこの自動保存には含みません。
+
+左上の「JSON を保存」でDSL全文と画面の全デフォルト設定・保存名を1つのJSONに保存し、「JSON を開く」で復元すると、自動でスプラットを生成してプレビューに反映します。不正なJSONや設定値、未対応バージョンはエラーにし、編集内容は保持します。途中のDSLも保存でき、DSL自体の構文検証は生成時に行います。PLY / SOGの保存は生成済みの結果を書き出します。
 
 JSON形式は `format: "sdf-splat-studio"`、`version: 1`、`source`（DSL文字列）、`defaults`（全デフォルト設定）、`name`（任意の保存名）です。`defaults` のキーは `extent`, `resolution`, `size`, `thickness`, `color`, `secondaryColor`, `secondaryRatio`, `seed`, `ambientIntensity`, `mainIntensity`, `mainAzimuth`, `mainElevation`, `fillIntensity`, `effect`, `density`, `hairLength`, `hairWidth`, `disorder`, `variation`, `clump`, `clumpSize`, `base`。エフェクト項目を含まない従来のversion 1 JSONは、エフェクト設定を初期値で補って読み込みます。JSONの `effect`・`hairLength`・`hairWidth` はDSLの `effect.type`・`effect.length`・`effect.width` に対応します。`secondaryRatio` は0〜1で、画面では0〜100%に変換します。角度は度単位、色は `#RRGGBB` です。
 

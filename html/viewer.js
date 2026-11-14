@@ -30,8 +30,17 @@ function showStatus(message, kind = "") {
 }
 
 for (const [id, { name }] of Object.entries(presets)) preset.add(new Option(name, id));
-preset.value = "torus";
+const draftStorageKey = "sdf-splat-studio:draft-source";
 source.value = presets.torus.source;
+try {
+  source.value = localStorage.getItem(draftStorageKey) ?? source.value;
+} catch (error) {
+  console.warn("DSL draft could not be restored:", error);
+}
+function updatePreset() {
+  preset.value = Object.keys(presets).find(id => presets[id].source === source.value) ?? "";
+}
+updatePreset();
 const editor = globalThis.SplatSourceEditor?.mount(source, () => {
   if (!generate.disabled) form.requestSubmit();
 });
@@ -41,7 +50,12 @@ function setSource(value) {
 }
 preset.addEventListener("change", () => { if (presets[preset.value]) setSource(presets[preset.value].source); });
 source.addEventListener("input", () => {
-  preset.value = Object.keys(presets).find(id => presets[id].source === source.value) ?? "";
+  updatePreset();
+  try {
+    localStorage.setItem(draftStorageKey, source.value);
+  } catch (error) {
+    console.warn("DSL draft could not be saved:", error);
+  }
 });
 
 function updateRangeOutputs() {
@@ -82,7 +96,8 @@ projectFile.addEventListener("change", async () => {
     setSource(project.source);
     downloadName.value = project.name || file.name.replace(/\.json$/i, "");
     updateRangeOutputs();
-    showProjectStatus(`${file.name} を読み込みました。「スプラットを生成」で反映します。`);
+    showProjectStatus(`${file.name} を読み込みました。`);
+    form.requestSubmit();
   } catch (error) {
     showProjectStatus(`読み込めませんでした：${error.message}`, "error");
   } finally {
