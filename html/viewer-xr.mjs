@@ -1,5 +1,7 @@
 import { XRPinchGestures } from "./xr-gestures.mjs";
 
+const AR_DRAG_THRESHOLD = 0.035; // Radians, equivalent to 1 cm of pinch movement.
+
 // Keep tracked cameras at meter scale; normalize only the splat/point content.
 export function setupXR({ THREE, renderer, scene, content, camera, controls,
   getBounds, isLoading, resize, showStatus }) {
@@ -10,6 +12,7 @@ export function setupXR({ THREE, renderer, scene, content, camera, controls,
   scene.add(placement);
   placement.add(content);
   const gestures = new XRPinchGestures();
+  const handSelections = new WeakMap();
   const direction = new THREE.Vector3(), axis = new THREE.Vector3();
   const rotation = new THREE.Quaternion();
   const reticle = new THREE.Mesh(
@@ -80,7 +83,7 @@ export function setupXR({ THREE, renderer, scene, content, camera, controls,
     let requested;
     try {
       requested = await navigator.xr.requestSession(`immersive-${type}`, {
-        optionalFeatures: type === "ar" ? ["local-floor", "hit-test", "dom-overlay"] : ["local-floor", "hand-tracking"],
+        optionalFeatures: ["local-floor", "hand-tracking", ...(type === "ar" ? ["hit-test", "dom-overlay"] : [])],
         ...(type === "ar" ? { domOverlay: { root: document.body } } : {}),
       });
       session = requested;
@@ -106,20 +109,25 @@ export function setupXR({ THREE, renderer, scene, content, camera, controls,
       document.body.classList.add("xr");
       byId("exit-xr").hidden = false;
       requested.addEventListener("visibilitychange", () => gestures.reset());
-      requested.addEventListener("select", () => {
-        if (mode === "ar" && reticle.visible) {
+      if (type === "ar") {
+        requested.addEventListener("selectstart", ({ inputSource }) => {
+          if (inputSource.hand) handSelections.set(inputSource, { yaw: 0, pitch: 0, manipulated: false });
+        });
+        requested.addEventListener("selectend", ({ inputSource }) => handSelections.delete(inputSource));
+        requested.addEventListener("select", ({ inputSource }) => {
+          if (!reticle.visible || handSelections.get(inputSource)?.manipulated) return;
           placement.position.setFromMatrixPosition(reticle.matrix);
-          placement.position.y += halfHeight;
+          placement.position.y += halfHeight * placement.scale.y;
           placement.quaternion.identity();
           pendingPlacement = false;
-        }
-      });
+        });
+      }
       // Restore after WebXRManager has restored its framebuffer and canvas size.
       await renderer.xr.setSession(requested);
       if (session !== requested) return;
       renderer.xr.getReferenceSpace()?.addEventListener("reset", () => gestures.reset());
-      showStatus(type === "ar" ? "面に向けてタップで配置。面が見つからない場合は前方に表示します。"
-        : "片手のピンチ移動で回転 · 両手のピンチで拡縮");
+      const gestureHelp = "片手のピンチ移動で回転 · 両手のピンチで拡縮";
+      showStatus(type === "ar" ? `面に向けてタップで配置 · ${gestureHelp}` : gestureHelp);
       if (type === "ar" && requested.requestHitTestSource) {
         try {
           const space = await requested.requestReferenceSpace("viewer");
@@ -160,18 +168,26 @@ export function setupXR({ THREE, renderer, scene, content, camera, controls,
       placement.position.set(p.x + direction.x * 1.7, p.y - 0.25, p.z + direction.z * 1.7);
       pendingPlacement = false;
     }
-    if (mode === "vr") {
-      const gesture = gestures.update(frame, reference, pose?.transform.orientation);
-      if (gesture?.type === "rotate") {
-        axis.copy(gesture.up);
-        rotation.setFromAxisAngle(axis, gesture.yaw);
-        placement.quaternion.premultiply(rotation);
-        axis.copy(gesture.right);
-        rotation.setFromAxisAngle(axis, gesture.pitch);
-        placement.quaternion.premultiply(rotation).normalize();
-      } else if (gesture?.type === "zoom") {
-        placement.scale.setScalar(THREE.MathUtils.clamp(placement.scale.x * gesture.factor, 0.1, 5));
+    const gesture = gestures.update(frame, reference, pose?.transform.orientation);
+    if (gesture?.type === "rotate") {
+      const selection = mode === "ar" && handSelections.get(gesture.source);
+      if (selection && !selection.manipulated) {
+        selection.yaw += gesture.yaw;
+        selection.pitch += gesture.pitch;
+        selection.manipulated = Math.hypot(selection.yaw, selection.pitch) >= AR_DRAG_THRESHOLD;
       }
+      axis.copy(gesture.up);
+      rotation.setFromAxisAngle(axis, gesture.yaw);
+      placement.quaternion.premultiply(rotation);
+      axis.copy(gesture.right);
+      rotation.setFromAxisAngle(axis, gesture.pitch);
+      placement.quaternion.premultiply(rotation).normalize();
+    } else if (gesture?.type === "zoom") {
+      for (const source of gesture.sources) {
+        const selection = handSelections.get(source);
+        if (selection) selection.manipulated = true;
+      }
+      placement.scale.setScalar(THREE.MathUtils.clamp(placement.scale.x * gesture.factor, 0.1, 5));
     }
     reticle.visible = false;
     if (mode === "ar" && hitSource) {

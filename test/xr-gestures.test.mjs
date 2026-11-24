@@ -30,6 +30,7 @@ test('either hand can pinch and drag horizontally and vertically with no easing'
     source.move(0.1, 1.1);
     const rotation = update();
     assert.equal(rotation.type, 'rotate');
+    assert.equal(rotation.source, source);
     close(rotation.yaw, 0.35);
     close(rotation.pitch, -0.35);
     const stationary = update();
@@ -64,11 +65,13 @@ test('two pinched hands expand and shrink without rotating', () => {
   left.move(-0.3); right.move(0.3);
   const expand = update();
   assert.equal(expand.type, 'zoom');
+  assert.deepEqual(expand.sources, [left, right]);
   close(expand.factor, 1.5);
   frame.session.inputSources = [right, left]; // Input ordering is not significant.
   left.move(-0.2); right.move(0.2);
   const shrink = update();
   assert.equal(shrink.type, 'zoom');
+  assert.deepEqual(shrink.sources, [right, left]);
   close(shrink.factor, 2 / 3);
 });
 
